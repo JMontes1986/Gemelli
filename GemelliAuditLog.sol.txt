@@ -1,0 +1,319 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+/**
+ * @title GemelliAuditLog
+ * @dev Contrato para registro inmutable de auditoría del sistema Gemelli IT
+ * @notice Este contrato almacena hashes de eventos importantes del sistema
+ * para garantizar integridad y trazabilidad
+ */
+contract GemelliAuditLog {
+    
+    // ==================== STRUCTS ====================
+    
+    struct AuditRecord {
+        bytes32 hash;           // Hash SHA256 del evento
+        uint8 action;           // Tipo de acción (ver ActionType)
+        bytes32 entityId;       // ID de la entidad afectada
+        address author;         // Dirección del autor
+        uint256 timestamp;      // Timestamp del registro
+        string metadata;        // Metadata adicional (JSON)
+    }
+    
+    // ==================== ENUMS ====================
+    
+    enum ActionType {
+        CREATE_DEVICE,      // 0
+        UPDATE_DEVICE,      // 1
+        DELETE_DEVICE,      // 2
+        CREATE_BACKUP,      // 3
+        CLOSE_TICKET,       // 4
+        UPDATE_SPECS,       // 5
+        OTHER               // 6
+    }
+    
+    // ==================== STATE VARIABLES ====================
+    
+    address public owner;
+    address[] public authorizedAddresses;
+    mapping(address => bool) public isAuthorized;
+    
+    AuditRecord[] public auditRecords;
+    mapping(bytes32 => uint256) public hashToIndex;
+    mapping(bytes32 => bool) public hashExists;
+    
+    uint256 public totalRecords;
+    
+    // ==================== EVENTS ====================
+    
+    event RecordAdded(
+        bytes32 indexed hash,
+        uint8 indexed action,
+        bytes32 indexed entityId,
+        address author,
+        uint256 timestamp
+    );
+    
+    event AuthorizedAddressAdded(address indexed newAddress);
+    event AuthorizedAddressRemoved(address indexed removedAddress);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    
+    // ==================== MODIFIERS ====================
+    
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Solo el propietario puede ejecutar esta funcion");
+        _;
+    }
+    
+    modifier onlyAuthorized() {
+        require(
+            isAuthorized[msg.sender] || msg.sender == owner,
+            "No autorizado para realizar esta accion"
+        );
+        _;
+    }
+    
+    // ==================== CONSTRUCTOR ====================
+    
+    constructor() {
+        owner = msg.sender;
+        isAuthorized[msg.sender] = true;
+        authorizedAddresses.push(msg.sender);
+    }
+    
+    // ==================== MAIN FUNCTIONS ====================
+    
+    /**
+     * @dev Registra un nuevo evento de auditoría
+     * @param _hash Hash SHA256 del evento
+     * @param _action Tipo de acción (enum ActionType)
+     * @param _entityId ID de la entidad (convertido a bytes32)
+     * @param _metadata Información adicional en formato JSON
+     */
+    function record(
+        bytes32 _hash,
+        uint8 _action,
+        bytes32 _entityId,
+        string calldata _metadata
+    ) external onlyAuthorized {
+        require(_hash != bytes32(0), "Hash no puede ser vacio");
+        require(!hashExists[_hash], "Este hash ya existe");
+        require(_action <= uint8(ActionType.OTHER), "Tipo de accion invalido");
+        
+        AuditRecord memory newRecord = AuditRecord({
+            hash: _hash,
+            action: _action,
+            entityId: _entityId,
+            author: msg.sender,
+            timestamp: block.timestamp,
+            metadata: _metadata
+        });
+        
+        auditRecords.push(newRecord);
+        hashToIndex[_hash] = auditRecords.length - 1;
+        hashExists[_hash] = true;
+        totalRecords++;
+        
+        emit RecordAdded(_hash, _action, _entityId, msg.sender, block.timestamp);
+    }
+    
+    /**
+     * @dev Registra múltiples eventos en batch (optimización de gas)
+     * @param _hashes Array de hashes
+     * @param _actions Array de acciones
+     * @param _entityIds Array de IDs de entidades
+     */
+    function recordBatch(
+        bytes32[] calldata _hashes,
+        uint8[] calldata _actions,
+        bytes32[] calldata _entityIds
+    ) external onlyAuthorized {
+        require(
+            _hashes.length == _actions.length && _actions.length == _entityIds.length,
+            "Los arrays deben tener la misma longitud"
+        );
+        require(_hashes.length > 0 && _hashes.length <= 50, "Batch debe tener entre 1 y 50 elementos");
+        
+        for (uint256 i = 0; i < _hashes.length; i++) {
+            require(_hashes[i] != bytes32(0), "Hash no puede ser vacio");
+            require(!hashExists[_hashes[i]], "Hash duplicado en batch");
+            require(_actions[i] <= uint8(ActionType.OTHER), "Tipo de accion invalido");
+            
+            AuditRecord memory newRecord = AuditRecord({
+                hash: _hashes[i],
+                action: _actions[i],
+                entityId: _entityIds[i],
+                author: msg.sender,
+                timestamp: block.timestamp,
+                metadata: ""
+            });
+            
+            auditRecords.push(newRecord);
+            hashToIndex[_hashes[i]] = auditRecords.length - 1;
+            hashExists[_hashes[i]] = true;
+            
+            emit RecordAdded(_hashes[i], _actions[i], _entityIds[i], msg.sender, block.timestamp);
+        }
+        
+        totalRecords += _hashes.length;
+    }
+    
+    // ==================== VIEW FUNCTIONS ====================
+    
+    /**
+     * @dev Verifica si un hash existe y devuelve su información
+     * @param _hash Hash a verificar
+     * @return exists Si el hash existe
+     * @return record Información del registro
+     */
+    function verify(bytes32 _hash) external view returns (bool exists, AuditRecord memory record) {
+        exists = hashExists[_hash];
+        if (exists) {
+            record = auditRecords[hashToIndex[_hash]];
+        }
+    }
+    
+    /**
+     * @dev Obtiene un registro por su índice
+     * @param _index Índice del registro
+     * @return record Información del registro
+     */
+    function getRecord(uint256 _index) external view returns (AuditRecord memory record) {
+        require(_index < auditRecords.length, "Indice fuera de rango");
+        return auditRecords[_index];
+    }
+    
+    /**
+     * @dev Obtiene múltiples registros en un rango
+     * @param _start Índice inicial
+     * @param _limit Cantidad de registros a devolver
+     * @return records Array de registros
+     */
+    function getRecords(uint256 _start, uint256 _limit) 
+        external 
+        view 
+        returns (AuditRecord[] memory records) 
+    {
+        require(_start < auditRecords.length, "Indice inicial fuera de rango");
+        require(_limit > 0 && _limit <= 100, "Limite debe estar entre 1 y 100");
+        
+        uint256 end = _start + _limit;
+        if (end > auditRecords.length) {
+            end = auditRecords.length;
+        }
+        
+        uint256 resultLength = end - _start;
+        records = new AuditRecord[](resultLength);
+        
+        for (uint256 i = 0; i < resultLength; i++) {
+            records[i] = auditRecords[_start + i];
+        }
+    }
+    
+    /**
+     * @dev Obtiene los últimos N registros
+     * @param _count Cantidad de registros
+     * @return records Array de registros
+     */
+    function getLatestRecords(uint256 _count) 
+        external 
+        view 
+        returns (AuditRecord[] memory records) 
+    {
+        require(_count > 0 && _count <= 100, "Count debe estar entre 1 y 100");
+        
+        uint256 length = _count;
+        if (length > auditRecords.length) {
+            length = auditRecords.length;
+        }
+        
+        records = new AuditRecord[](length);
+        uint256 startIndex = auditRecords.length - length;
+        
+        for (uint256 i = 0; i < length; i++) {
+            records[i] = auditRecords[startIndex + i];
+        }
+    }
+    
+    /**
+     * @dev Obtiene registros por entidad
+     * @param _entityId ID de la entidad
+     * @return records Array de registros
+     */
+    function getRecordsByEntity(bytes32 _entityId) 
+        external 
+        view 
+        returns (AuditRecord[] memory records) 
+    {
+        // Primero contar cuántos registros hay
+        uint256 count = 0;
+        for (uint256 i = 0; i < auditRecords.length; i++) {
+            if (auditRecords[i].entityId == _entityId) {
+                count++;
+            }
+        }
+        
+        // Crear array del tamaño correcto
+        records = new AuditRecord[](count);
+        uint256 index = 0;
+        
+        // Llenar el array
+        for (uint256 i = 0; i < auditRecords.length; i++) {
+            if (auditRecords[i].entityId == _entityId) {
+                records[index] = auditRecords[i];
+                index++;
+            }
+        }
+    }
+    
+    /**
+     * @dev Obtiene el total de registros
+     * @return Total de registros almacenados
+     */
+    function getTotalRecords() external view returns (uint256) {
+        return totalRecords;
+    }
+    
+    // ==================== ADMIN FUNCTIONS ====================
+    
+    /**
+     * @dev Agrega una dirección autorizada
+     * @param _address Dirección a autorizar
+     */
+    function addAuthorizedAddress(address _address) external onlyOwner {
+        require(_address != address(0), "Direccion invalida");
+        require(!isAuthorized[_address], "Direccion ya autorizada");
+        
+        isAuthorized[_address] = true;
+        authorizedAddresses.push(_address);
+        
+        emit AuthorizedAddressAdded(_address);
+    }
+    
+    /**
+     * @dev Remueve una dirección autorizada
+     * @param _address Dirección a remover
+     */
+    function removeAuthorizedAddress(address _address) external onlyOwner {
+        require(_address != owner, "No se puede remover al propietario");
+        require(isAuthorized[_address], "Direccion no autorizada");
+        
+        isAuthorized[_address] = false;
+        
+        // Remover del array
+        for (uint256 i = 0; i < authorizedAddresses.length; i++) {
+            if (authorizedAddresses[i] == _address) {
+                authorizedAddresses[i] = authorizedAddresses[authorizedAddresses.length - 1];
+                authorizedAddresses.pop();
+                break;
+            }
+        }
+        
+        emit AuthorizedAddressRemoved(_address);
+    }
+    
+    /**
+     * @dev Obtiene todas las direcciones autorizadas
+     * @return Array de direcciones autorizadas
+     */
+    function getAuthorizedAddresses
