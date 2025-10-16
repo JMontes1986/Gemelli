@@ -316,4 +316,78 @@ contract GemelliAuditLog {
      * @dev Obtiene todas las direcciones autorizadas
      * @return Array de direcciones autorizadas
      */
-    function getAuthorizedAddresses
+    function getAuthorizedAddresses() external view returns (address[] memory) {
+        return authorizedAddresses;
+    }
+    
+    /**
+     * @dev Transfiere la propiedad del contrato
+     * @param _newOwner Nueva dirección propietaria
+     */
+    function transferOwnership(address _newOwner) external onlyOwner {
+        require(_newOwner != address(0), "Nueva direccion invalida");
+        require(_newOwner != owner, "Ya eres el propietario");
+        
+        address previousOwner = owner;
+        
+        // Remover autorización del owner anterior si no está en la lista
+        if (!isAuthorized[previousOwner]) {
+            isAuthorized[previousOwner] = false;
+        }
+        
+        // Autorizar al nuevo owner
+        if (!isAuthorized[_newOwner]) {
+            isAuthorized[_newOwner] = true;
+            authorizedAddresses.push(_newOwner);
+        }
+        
+        owner = _newOwner;
+        
+        emit OwnershipTransferred(previousOwner, _newOwner);
+    }
+    
+    // ==================== HELPER FUNCTIONS ====================
+    
+    /**
+     * @dev Convierte un string a bytes32
+     * @param _source String a convertir
+     * @return result bytes32 resultante
+     */
+    function stringToBytes32(string memory _source) public pure returns (bytes32 result) {
+        bytes memory tempEmptyStringTest = bytes(_source);
+        if (tempEmptyStringTest.length == 0) {
+            return 0x0;
+        }
+        
+        assembly {
+            result := mload(add(_source, 32))
+        }
+    }
+    
+    /**
+     * @dev Convierte bytes32 a string
+     * @param _bytes32 bytes32 a convertir
+     * @return String resultante
+     */
+    function bytes32ToString(bytes32 _bytes32) public pure returns (string memory) {
+        uint8 i = 0;
+        while(i < 32 && _bytes32[i] != 0) {
+            i++;
+        }
+        bytes memory bytesArray = new bytes(i);
+        for (i = 0; i < 32 && _bytes32[i] != 0; i++) {
+            bytesArray[i] = _bytes32[i];
+        }
+        return string(bytesArray);
+    }
+    
+    // ==================== VERSION INFO ====================
+    
+    function version() external pure returns (string memory) {
+        return "1.0.0";
+    }
+    
+    function contractName() external pure returns (string memory) {
+        return "GemelliAuditLog";
+    }
+}
