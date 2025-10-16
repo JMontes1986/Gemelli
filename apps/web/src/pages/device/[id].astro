@@ -1,0 +1,13 @@
+---
+import Base from '../../layouts/BaseLayout.astro';
+import DeviceCV from '../../react/DeviceCV';
+const { id } = Astro.params;
+---
+<Base title="Hoja de Vida — Gemelli IT">
+  <DeviceCV id={id} client:load />
+  <div class="grid md:grid-cols-3 gap-3 mt-4">
+    <a class="block p-3 rounded bg-white shadow text-center" href={`/inventory/${id}/specs`}>Editar Especificaciones</a>
+    <a class="block p-3 rounded bg-white shadow text-center" href={`/inventory/${id}/logs`}>Registrar Log</a>
+    <a class="block p-3 rounded bg-white shadow text-center" href="/backups/new">Programar Backup</a>
+  </div>
+</Base>

@@ -1,0 +1,8 @@
+---
+import Base from '../layouts/BaseLayout.astro';
+import NewTicket from '../react/NewTicket';
+---
+<Base title="HelpDesk — Gemelli IT">
+  <h1 class="text-2xl font-bold mb-4">HelpDesk</h1>
+  <NewTicket client:load />
+</Base>

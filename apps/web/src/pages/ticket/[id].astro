@@ -1,0 +1,8 @@
+---
+import Base from '../../layouts/BaseLayout.astro';
+import TicketDetail from '../../react/TicketDetail';
+const { id } = Astro.params;
+---
+<Base title="Ticket — Gemelli IT">
+  <TicketDetail id={id} client:load />
+</Base>
