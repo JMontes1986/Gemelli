@@ -1,0 +1,11 @@
+{
+  "name": "gemelli-it",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter @gemelli/web dev",
+    "build": "pnpm --filter @gemelli/web build"
+  }
+}
