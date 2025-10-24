@@ -1,0 +1,26 @@
+---
+// src/pages/inventory/index.astro
+import MainLayout from '../../layouts/MainLayout.astro';
+import DeviceList from '../../components/DeviceList';
+---
+
+<MainLayout title="Inventario">
+  <div class="max-w-7xl mx-auto px-4 py-8">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">Inventario de Dispositivos</h1>
+      <p class="text-gray-600">Gestiona todos los equipos TI del colegio</p>
+    </div>
+    
+    <DeviceList client:load />
+  </div>
+</MainLayout>
+
+<script>
+  // Verificar autenticación
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      window.location.href = '/login';
+    }
+  }
+</script>
