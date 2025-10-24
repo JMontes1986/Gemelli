@@ -1,16 +1,18 @@
 import { defineConfig } from 'astro/config';
+import netlify from '@astrojs/netlify/functions';
 import react from '@astrojs/react';
 import tailwind from '@astrojs/tailwind';
 
 // https://astro.build/config
 export default defineConfig({
+  output: 'hybrid',
+  adapter: netlify(),
   integrations: [
     react(),
     tailwind({
       applyBaseStyles: false,
     }),
   ],
-  output: 'static',
   server: {
     port: 4321,
     host: true,
