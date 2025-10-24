@@ -1,0 +1,21 @@
+---
+// src/pages/helpdesk/[id].astro
+import MainLayout from '../../layouts/MainLayout.astro';
+import TicketDetail from '../../components/TicketDetail';
+---
+
+<MainLayout title="Detalle del Ticket">
+  <div class="max-w-5xl mx-auto px-4 py-8">
+    <TicketDetail client:load />
+  </div>
+</MainLayout>
+
+<script>
+  // Verificar autenticación
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      window.location.href = '/login';
+    }
+  }
+</script>
