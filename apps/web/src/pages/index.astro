@@ -1,0 +1,27 @@
+---
+// src/pages/index.astro
+// Redirigir a login si no está autenticado, o a dashboard si lo está
+---
+
+<script>
+  // Redirigir automáticamente
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      window.location.href = '/dashboard';
+    } else {
+      window.location.href = '/login';
+    }
+  }
+</script>
+
+<html>
+  <head>
+    <title>Redirigiendo...</title>
+  </head>
+  <body>
+    <div style="display: flex; align-items: center; justify-content: center; height: 100vh;">
+      <p>Redirigiendo...</p>
+    </div>
+  </body>
+</html>
