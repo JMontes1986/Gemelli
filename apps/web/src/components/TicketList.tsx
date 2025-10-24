@@ -147,7 +147,8 @@ const TicketList: React.FC = () => {
             </button>
           </div>
 
-          
+
+          <a
             href="/helpdesk/new"
             className="btn-primary flex items-center gap-2 w-full md:w-auto justify-center"
           >
@@ -171,7 +172,7 @@ const TicketList: React.FC = () => {
       ) : (
         <div className="space-y-4">
           {ticketList.map((ticket) => (
-            
+            <a
               key={ticket.id}
               href={`/helpdesk/${ticket.id}`}
               className="card hover:shadow-lg transition-shadow cursor-pointer"
