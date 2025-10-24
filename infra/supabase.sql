@@ -390,3 +390,118 @@ CREATE POLICY "Los usuarios ven attachments relacionados a recursos que pueden v
 CREATE POLICY "Los usuarios pueden subir attachments"
     ON attachments FOR INSERT
     WITH CHECK (subido_por = auth.uid());
+
+-- ==================== TRIGGERS ====================
+
+-- Actualizar timestamp automáticamente
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.actualizado_en = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_devices_updated_at BEFORE UPDATE ON devices
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_device_specs_updated_at BEFORE UPDATE ON device_specs
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Calcular tiempos de respuesta y resolución en tickets
+CREATE OR REPLACE FUNCTION calculate_ticket_times()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Tiempo de respuesta (desde creación hasta asignación)
+    IF NEW.fecha_asignacion IS NOT NULL AND OLD.fecha_asignacion IS NULL THEN
+        NEW.tiempo_respuesta_minutos = EXTRACT(EPOCH FROM (NEW.fecha_asignacion - NEW.fecha_creacion)) / 60;
+    END IF;
+    
+    -- Tiempo de resolución (desde creación hasta resolución)
+    IF NEW.fecha_resolucion IS NOT NULL AND OLD.fecha_resolucion IS NULL THEN
+        NEW.tiempo_resolucion_minutos = EXTRACT(EPOCH FROM (NEW.fecha_resolucion - NEW.fecha_creacion)) / 60;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER calculate_ticket_times_trigger BEFORE UPDATE ON tickets
+    FOR EACH ROW EXECUTE FUNCTION calculate_ticket_times();
+
+-- ==================== FUNCIONES ÚTILES ====================
+
+-- Función para obtener estadísticas de dispositivos
+CREATE OR REPLACE FUNCTION get_device_stats(p_org_unit_id UUID)
+RETURNS TABLE (
+    total BIGINT,
+    activos BIGINT,
+    reparacion BIGINT,
+    retirados BIGINT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        COUNT(*)::BIGINT as total,
+        COUNT(*) FILTER (WHERE estado = 'ACTIVO')::BIGINT as activos,
+        COUNT(*) FILTER (WHERE estado = 'REPARACIÓN')::BIGINT as reparacion,
+        COUNT(*) FILTER (WHERE estado = 'RETIRADO')::BIGINT as retirados
+    FROM devices
+    WHERE org_unit_id = p_org_unit_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Función para obtener estadísticas de tickets
+CREATE OR REPLACE FUNCTION get_ticket_stats(p_org_unit_id UUID)
+RETURNS TABLE (
+    total BIGINT,
+    abiertos BIGINT,
+    en_proceso BIGINT,
+    resueltos BIGINT,
+    cerrados BIGINT,
+    tiempo_promedio_respuesta NUMERIC,
+    tiempo_promedio_resolucion NUMERIC
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        COUNT(*)::BIGINT as total,
+        COUNT(*) FILTER (WHERE estado = 'ABIERTO')::BIGINT as abiertos,
+        COUNT(*) FILTER (WHERE estado = 'EN_PROCESO')::BIGINT as en_proceso,
+        COUNT(*) FILTER (WHERE estado = 'RESUELTO')::BIGINT as resueltos,
+        COUNT(*) FILTER (WHERE estado = 'CERRADO')::BIGINT as cerrados,
+        AVG(tiempo_respuesta_minutos) as tiempo_promedio_respuesta,
+        AVG(tiempo_resolucion_minutos) as tiempo_promedio_resolucion
+    FROM tickets
+    WHERE org_unit_id = p_org_unit_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ==================== COMENTARIOS ====================
+
+COMMENT ON TABLE org_units IS 'Dependencias organizacionales (Ej: Colegio, Administración)';
+COMMENT ON TABLE users IS 'Usuarios del sistema con roles y permisos';
+COMMENT ON TABLE devices IS 'Inventario de dispositivos TI';
+COMMENT ON TABLE device_specs IS 'Especificaciones técnicas detalladas de cada dispositivo';
+COMMENT ON TABLE device_logs IS 'Historial de eventos y cambios en dispositivos';
+COMMENT ON TABLE backups IS 'Registro de copias de seguridad realizadas';
+COMMENT ON TABLE tickets IS 'Tickets del sistema HelpDesk';
+COMMENT ON TABLE ticket_comments IS 'Comentarios y seguimiento de tickets';
+COMMENT ON TABLE audit_chain IS 'Registro inmutable de eventos importantes con cadena de hash';
+COMMENT ON TABLE attachments IS 'Archivos adjuntos (imágenes, documentos, evidencias)';
+
+-- ==================== GRANTS ====================
+
+-- Otorgar permisos a usuarios autenticados
+GRANT USAGE ON SCHEMA public TO authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO authenticated;
+
+-- ==================== FIN SCHEMA ====================
+
+-- Script completado exitosamente
+-- Ejecutar: psql "postgresql://..." < supabase.sql
