@@ -1,6 +1,6 @@
 // src/components/LoginForm.tsx
 import React, { useState } from 'react';
-import { Activity, Mail, Lock, AlertCircle, UserRound } from 'lucide-react';
+import { Activity, Mail, Lock, AlertCircle, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const LoginForm: React.FC = () => {
