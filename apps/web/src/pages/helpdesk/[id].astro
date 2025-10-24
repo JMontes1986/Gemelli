@@ -2,6 +2,8 @@
 // src/pages/helpdesk/[id].astro
 import MainLayout from '../../layouts/MainLayout.astro';
 import TicketDetail from '../../components/TicketDetail';
+
+export const prerender = false;
 ---
 
 <MainLayout title="Detalle del Ticket">
