@@ -33,7 +33,7 @@ const NewTicketForm: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Botón Volver */}
-      
+      <a
         href="/helpdesk"
         className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
       >
