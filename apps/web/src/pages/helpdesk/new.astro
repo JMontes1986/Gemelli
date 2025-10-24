@@ -1,0 +1,26 @@
+---
+// src/pages/helpdesk/new.astro
+import MainLayout from '../../layouts/MainLayout.astro';
+import NewTicketForm from '../../components/NewTicketForm';
+---
+
+<MainLayout title="Nuevo Ticket">
+  <div class="max-w-3xl mx-auto px-4 py-8">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">Crear Nuevo Ticket</h1>
+      <p class="text-gray-600">Reporta un problema o solicita soporte técnico</p>
+    </div>
+    
+    <NewTicketForm client:load />
+  </div>
+</MainLayout>
+
+<script>
+  // Verificar autenticación
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      window.location.href = '/login';
+    }
+  }
+</script>
