@@ -1,0 +1,21 @@
+---
+// src/pages/dashboard.astro
+import MainLayout from '../layouts/MainLayout.astro';
+import Dashboard from '../components/Dashboard';
+---
+
+<MainLayout title="Dashboard">
+  <div class="max-w-7xl mx-auto px-4 py-8">
+    <Dashboard client:load />
+  </div>
+</MainLayout>
+
+<script>
+  // Verificar autenticación
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      window.location.href = '/login';
+    }
+  }
+</script>
