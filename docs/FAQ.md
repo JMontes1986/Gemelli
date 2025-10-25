@@ -133,6 +133,11 @@ Supabase gestiona la mayoría automáticamente.
 3. Invalidar tokens JWT existentes
 4. Notificar al equipo
 
+### ¿Por qué aparece el mensaje "Rol en Supabase inválido"?
+
+La API valida que el rol entregado por Supabase pertenezca al conjunto soportado (`DOCENTE`, `ADMINISTRATIVO`, `TI`, `DIRECTOR`, `LIDER_TI`).
+Si llega cualquier otro valor (por ejemplo, `guest`), el endpoint devolverá un **HTTP 422** con el detalle `"Rol en Supabase inválido: <valor>"` para que soporte corrija el perfil en Supabase antes de reintentar.
+
 ### ¿Los tickets son privados?
 
 **Sí**. RLS garantiza que:
