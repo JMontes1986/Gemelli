@@ -10,7 +10,8 @@
     "preview": "astro preview",
     "astro": "astro",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx,.astro",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test": "tsc -p tsconfig.test.json && node node_modules/.cache/roles-test/__tests__/roles.test.js"
   },
   "dependencies": {
     "@astrojs/netlify": "^5.2.0",
