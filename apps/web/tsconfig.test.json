@@ -4,10 +4,13 @@
     "noEmit": false,
     "allowImportingTsExtensions": false,
     "verbatimModuleSyntax": false,
+    "isolatedModules": false,
     "outDir": "node_modules/.cache/roles-test",
     "module": "CommonJS",
     "target": "ES2020",
-    "moduleResolution": "Node"
+    "moduleResolution": "node10",
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true
   },
-  "include": ["src/lib/roles.ts", "src/lib/__tests__/roles.test.ts"]
+  "include": ["src/lib/roles/**/*.ts", "src/lib/__tests__/roles.test.ts"]
 }
