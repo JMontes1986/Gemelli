@@ -1,10 +1,10 @@
  (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
 diff --git a/apps/web/src/components/DeviceAdminPanel.tsx b/apps/web/src/components/DeviceAdminPanel.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..c8a0497e8b325ca380e66285c1daae61800d379c
+index 0000000000000000000000000000000000000000..e9039decdf8830a7f8a1d5a6a7ea4cd55a35b9e4
 --- /dev/null
 +++ b/apps/web/src/components/DeviceAdminPanel.tsx
-@@ -0,0 +1,388 @@
+@@ -0,0 +1,411 @@
 +// src/components/DeviceAdminPanel.tsx
 +import React, { useEffect, useMemo, useState } from 'react';
 +import {
@@ -58,6 +58,13 @@ index 0000000000000000000000000000000000000000..c8a0497e8b325ca380e66285c1daae61
 +  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 +  const [canManageInventory, setCanManageInventory] = useState(false);
 +  const [profileChecked, setProfileChecked] = useState(false);
++
++  useEffect(() => {
++    const token = localStorage.getItem('access_token');
++    if (!token) {
++      window.location.href = '/login';
++    }
++  }, []);
 +
 +  useEffect(() => {
 +    const fetchProfile = async () => {
@@ -174,28 +181,29 @@ index 0000000000000000000000000000000000000000..c8a0497e8b325ca380e66285c1daae61
 +    setFormData((prev) => ({ ...prev, [field]: event.target.value }));
 +  };
 +
-+  if (!profileChecked) {
-+    return (
-+      <div className="flex items-center justify-center py-12">
-+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-+      </div>
-+    );
-+  }
++  const renderContent = () => {
++    if (!profileChecked) {
++      return (
++        <div className="flex items-center justify-center py-12">
++          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
++        </div>
++      );
++    }
 +
-+  if (!canManageInventory) {
-+    return (
-+      <div className="card text-center py-12">
-+        <Shield className="w-16 h-16 text-blue-500 mx-auto mb-4" />
-+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Acceso restringido</h2>
-+        <p className="text-gray-600">
-+          No tienes permisos para administrar el inventario. Contacta al equipo de TI si crees que es un error.
-+        </p>
-+      </div>
-+    );
-+  }
++    if (!canManageInventory) {
++      return (
++        <div className="card text-center py-12">
++          <Shield className="w-16 h-16 text-blue-500 mx-auto mb-4" />
++          <h2 className="text-xl font-semibold text-gray-900 mb-2">Acceso restringido</h2>
++          <p className="text-gray-600">
++            No tienes permisos para administrar el inventario. Contacta al equipo de TI si crees que es un error.
++          </p>
++        </div>
++      );
++    }
 +
-+  return (
-+    <div className="space-y-6">
++    return (
++      <>
 +      <div className="card">
 +        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 +          <div>
@@ -388,6 +396,21 @@ index 0000000000000000000000000000000000000000..c8a0497e8b325ca380e66285c1daae61
 +          )}
 +        </div>
 +      </div>
++      </>
++    );
++  };
++
++  return (
++    <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
++      <div className="mb-4">
++        <h1 className="text-3xl font-bold text-gray-900 mb-2">Administración del Inventario</h1>
++        <p className="text-gray-600 max-w-2xl">
++          Gestiona y actualiza la información de los equipos registrados. Solo el personal autorizado puede acceder a este
++          panel.
++        </p>
++      </div>
++
++      {renderContent()}
 +    </div>
 +  );
 +};
