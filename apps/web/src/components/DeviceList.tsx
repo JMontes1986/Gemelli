@@ -32,6 +32,7 @@ const DeviceList: React.FC = () => {
   const [filterEstado, setFilterEstado] = useState('');
   const [filterTipo, setFilterTipo] = useState('');
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [formData, setFormData] = useState({
     nombre: '',
@@ -53,6 +54,7 @@ const DeviceList: React.FC = () => {
       try {
         const profile = await auth.getProfile();
         setUserRole(profile.rol);
+        setUserEmail(profile.email ? profile.email.toLowerCase() : null);
       } catch (error) {
         console.error('No se pudo obtener el perfil del usuario:', error);
       }
@@ -110,7 +112,12 @@ const DeviceList: React.FC = () => {
       device.ubicacion.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const canCreateDevices = userRole === 'TI' || userRole === 'LIDER_TI';
+  const privilegedInventoryEmails = ['sistemas@colgemelli.edu.co'];
+
+  const canCreateDevices =
+    userRole === 'TI' ||
+    userRole === 'LIDER_TI' ||
+    (userEmail ? privilegedInventoryEmails.includes(userEmail) : false);
 
   const handleCreateDevice = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
