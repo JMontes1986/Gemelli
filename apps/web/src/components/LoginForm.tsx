@@ -1,6 +1,6 @@
 // src/components/LoginForm.tsx
-import React, { useState } from 'react';
-import { Activity, Mail, Lock, AlertCircle, User } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Activity, Mail, Lock, AlertCircle, User, Building, Shield } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const LoginForm: React.FC = () => {
@@ -8,6 +8,11 @@ const LoginForm: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState<'DOCENTE' | 'ADMINISTRATIVO' | 'TI' | 'DIRECTOR' | 'LIDER_TI'>('DOCENTE');
+  const [orgUnitId, setOrgUnitId] = useState('');
+  const [orgUnits, setOrgUnits] = useState<Array<{ id: string; nombre: string }>>([]);
+  const [orgUnitsLoading, setOrgUnitsLoading] = useState(false);
+  const [isActive, setIsActive] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -15,6 +20,26 @@ const LoginForm: React.FC = () => {
 
   const isLogin = mode === 'login';
 
+  useEffect(() => {
+    const fetchOrgUnits = async () => {
+      setOrgUnitsLoading(true);
+      const { data, error } = await supabase
+        .from('org_units')
+        .select('id, nombre')
+        .order('nombre', { ascending: true });
+
+      if (error) {
+        setError('No se pudieron cargar las unidades organizacionales.');
+      } else if (data) {
+        setOrgUnits(data);
+      }
+
+      setOrgUnitsLoading(false);
+    };
+
+    fetchOrgUnits();
+  }, []);
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -39,17 +64,33 @@ const LoginForm: React.FC = () => {
           throw new Error('Las contraseñas no coinciden');
         }
 
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: {
               full_name: fullName,
+            role,
+              org_unit_id: orgUnitId || null,
+              active: isActive,
             },
           },
         });
 
         if (error) throw error;
+
+        if (data.user) {
+          const { error: profileError } = await supabase.from('users').insert({
+            id: data.user.id,
+            nombre: fullName,
+            email,
+            rol: role,
+            org_unit_id: orgUnitId || null,
+            activo: isActive,
+          });
+
+          if (profileError) throw profileError;
+        }
 
         setSuccess(
           'Cuenta creada correctamente. Revisa tu correo electrónico para confirmar tu registro antes de iniciar sesión.'
@@ -58,6 +99,9 @@ const LoginForm: React.FC = () => {
         setPassword('');
         setConfirmPassword('');
         setFullName('');
+        setRole('DOCENTE');
+        setOrgUnitId('');
+        setIsActive(true);
       }
     } catch (err: any) {
       setError(err.message || (isLogin ? 'Error al iniciar sesión' : 'Error al crear la cuenta'));
@@ -92,6 +136,9 @@ const LoginForm: React.FC = () => {
               setPassword('');
               setConfirmPassword('');
               setFullName('');
+              setRole('DOCENTE');
+              setOrgUnitId('');
+              setIsActive(true);
             }}
             className="text-sm font-medium text-blue-600 hover:text-blue-700"
           >
@@ -120,7 +167,7 @@ const LoginForm: React.FC = () => {
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <UserRound className="h-5 w-5 text-gray-400" />
+                  <User className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
                   id="fullName"
@@ -194,6 +241,82 @@ const LoginForm: React.FC = () => {
                   required
                 />
               </div>
+            </div>
+          )}
+
+          {!isLogin && (
+            <div>
+              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
+                Rol
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Shield className="h-5 w-5 text-gray-400" />
+                </div>
+                <select
+                  id="role"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as typeof role)}
+                  className="input pl-10"
+                  required
+                >
+                  <option value="DOCENTE">Docente</option>
+                  <option value="ADMINISTRATIVO">Administrativo</option>
+                  <option value="TI">Equipo de TI</option>
+                  <option value="DIRECTOR">Director</option>
+                  <option value="LIDER_TI">Líder TI</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {!isLogin && (
+            <div>
+              <label htmlFor="orgUnit" className="block text-sm font-medium text-gray-700 mb-2">
+                Unidad Organizacional
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Building className="h-5 w-5 text-gray-400" />
+                </div>
+                <select
+                  id="orgUnit"
+                  value={orgUnitId}
+                  onChange={(e) => setOrgUnitId(e.target.value)}
+                  className="input pl-10"
+                  disabled={orgUnitsLoading || orgUnits.length === 0}
+                >
+                  <option value="">Selecciona una unidad (opcional)</option>
+                  {orgUnits.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {orgUnitsLoading && (
+                <p className="mt-1 text-xs text-gray-500">Cargando unidades...</p>
+              )}
+              {!orgUnitsLoading && orgUnits.length === 0 && (
+                <p className="mt-1 text-xs text-gray-500">
+                  No hay unidades organizacionales disponibles en este momento.
+                </p>
+              )}
+            </div>
+          )}
+
+          {!isLogin && (
+            <div className="flex items-center gap-3">
+              <label htmlFor="active" className="block text-sm font-medium text-gray-700">
+                Usuario activo
+              </label>
+              <input
+                id="active"
+                type="checkbox"
+                checked={isActive}
+                onChange={(e) => setIsActive(e.target.checked)}
+                className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+              />
             </div>
           )}
           
