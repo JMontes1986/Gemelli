@@ -254,16 +254,20 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Error de autenticación: {str(e)}")
 
-def require_role(allowed_roles: List[str]):
+def require_role(allowed_roles: List[str], allowed_emails: Optional[List[str]] = None):
     """Decorator para verificar roles"""
+
+    allowed_emails = allowed_emails or []
     
     def role_checker(user: UserProfile = Depends(get_current_user)):
         if user.rol == "LIDER_TI":
             return user
+        if user.email in allowed_emails:
+            return user
         if user.rol not in allowed_roles:
             raise HTTPException(status_code=403, detail="Permisos insuficientes")
         return user
-    
+        
     return role_checker
 
 # ==================== ROUTES ====================
@@ -315,7 +319,12 @@ async def list_devices(
 @app.post("/inventory/devices", status_code=201)
 async def create_device(
     device: DeviceCreate,
-    user: UserProfile = Depends(require_role(["TI", "LIDER_TI"]))
+    user: UserProfile = Depends(
+        require_role(
+            ["TI", "LIDER_TI"],
+            allowed_emails=["sistemas@colgemelli.edu.co"],
+        )
+    )
 ):
     """Crear nuevo dispositivo (solo TI)"""
     device_data = device.model_dump()
