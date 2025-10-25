@@ -1,34 +1,26 @@
- (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/apps/web/src/pages/inventory/admin.astro b/apps/web/src/pages/inventory/admin.astro
-new file mode 100644
-index 0000000000000000000000000000000000000000..066b9a06fb831281e9967266606c8d57ed29cbd6
---- /dev/null
-+++ b/apps/web/src/pages/inventory/admin.astro
-@@ -0,0 +1,27 @@
-+---
-+// src/pages/inventory/admin.astro
-+import MainLayout from '../../layouts/MainLayout.astro';
-+import DeviceAdminPanel from '../../components/DeviceAdminPanel';
-+---
-+
-+<MainLayout title="Administrar Inventario">
-+  <div class="max-w-7xl mx-auto px-4 py-8 space-y-8">
-+    <div class="mb-4">
-+      <h1 class="text-3xl font-bold text-gray-900 mb-2">Administración del Inventario</h1>
-+      <p class="text-gray-600 max-w-2xl">
-+        Gestiona y actualiza la información de los equipos registrados. Solo el personal autorizado puede acceder a este panel.
-+      </p>
-+    </div>
-+
-+    <DeviceAdminPanel client:load />
-+  </div>
-+</MainLayout>
-+
-+<script>
-+  if (typeof window !== 'undefined') {
-+    const token = localStorage.getItem('access_token');
-+    if (!token) {
-+      window.location.href = '/login';
-+    }
-+  }
-+</script>
+---
+import MainLayout from '../../layouts/MainLayout.astro';
+import DeviceAdminPanel from '../../components/DeviceAdminPanel';
+---
+
+<MainLayout title="Administrar Inventario">
+  <div class="max-w-7xl mx-auto px-4 py-8 space-y-8">
+    <div class="mb-4">
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">Administración del Inventario</h1>
+      <p class="text-gray-600 max-w-2xl">
+        Gestiona y actualiza la información de los equipos registrados. Solo el personal autorizado puede acceder a este panel.
+      </p>
+    </div>
+
+    <DeviceAdminPanel client:load />
+  </div>
+
+  <script is:inline>
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        window.location.href = '/login';
+      }
+    }
+  </script>
+</MainLayout>
