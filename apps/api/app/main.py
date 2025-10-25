@@ -256,10 +256,14 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 def require_role(allowed_roles: List[str]):
     """Decorator para verificar roles"""
+    
     def role_checker(user: UserProfile = Depends(get_current_user)):
+        if user.rol == "LIDER_TI":
+            return user
         if user.rol not in allowed_roles:
             raise HTTPException(status_code=403, detail="Permisos insuficientes")
         return user
+    
     return role_checker
 
 # ==================== ROUTES ====================
@@ -295,7 +299,10 @@ async def list_devices(
     """Listar dispositivos (filtrados por org_unit del usuario)"""
     query = supabase.table("devices").select(
         "*, usuario_actual:users!usuario_actual_id(nombre, email)"
-    ).eq("org_unit_id", user.org_unit_id)
+    )
+
+    if user.rol != "LIDER_TI":
+        query = query.eq("org_unit_id", user.org_unit_id)
     
     if estado:
         query = query.eq("estado", estado)
@@ -343,9 +350,12 @@ async def get_device_cv(
 ):
     """Obtener hoja de vida completa del dispositivo"""
     # Verificar acceso
-    device = supabase.table("devices").select("*").eq("id", device_id).eq(
-        "org_unit_id", user.org_unit_id
-    ).single().execute()
+    device_query = supabase.table("devices").select("*").eq("id", device_id)
+
+    if user.rol != "LIDER_TI":
+        device_query = device_query.eq("org_unit_id", user.org_unit_id)
+
+    device = device_query.single().execute()
     
     if not device.data:
         raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
@@ -384,9 +394,12 @@ async def update_device(
     update_data = {k: v for k, v in updates.model_dump().items() if v is not None}
     update_data["actualizado_en"] = datetime.utcnow().isoformat()
     
-    response = supabase.table("devices").update(update_data).eq("id", device_id).eq(
-        "org_unit_id", user.org_unit_id
-    ).execute()
+    update_query = supabase.table("devices").update(update_data).eq("id", device_id)
+
+    if user.rol != "LIDER_TI":
+        update_query = update_query.eq("org_unit_id", user.org_unit_id)
+
+    response = update_query.execute()
     
     if not response.data:
         raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
@@ -465,7 +478,11 @@ async def list_tickets(
     user: UserProfile = Depends(get_current_user)
 ):
     """Listar tickets"""
-    if user.rol in ["TI", "LIDER_TI", "DIRECTOR"]:
+    if user.rol == "LIDER_TI":
+        query = supabase.table("tickets").select(
+            "*, solicitante:users!solicitante_id(nombre, email), asignado:users!asignado_a(nombre)"
+        )
+    elif user.rol in ["TI", "DIRECTOR"]:
         query = supabase.table("tickets").select(
             "*, solicitante:users!solicitante_id(nombre, email), asignado:users!asignado_a(nombre)"
         ).eq("org_unit_id", user.org_unit_id)
@@ -572,14 +589,16 @@ async def add_comment(
 async def get_metrics(user: UserProfile = Depends(get_current_user)):
     """Obtener métricas del dashboard"""
     # Dispositivos
-    devices = supabase.table("devices").select("estado", count="exact").eq(
-        "org_unit_id", user.org_unit_id
-    ).execute()
+    devices_query = supabase.table("devices").select("estado", count="exact")
+    if user.rol != "LIDER_TI":
+        devices_query = devices_query.eq("org_unit_id", user.org_unit_id)
+    devices = devices_query.execute()
     
     # Tickets
-    tickets = supabase.table("tickets").select("estado, prioridad", count="exact").eq(
-        "org_unit_id", user.org_unit_id
-    ).execute()
+    tickets_query = supabase.table("tickets").select("estado, prioridad", count="exact")
+    if user.rol != "LIDER_TI":
+        tickets_query = tickets_query.eq("org_unit_id", user.org_unit_id)
+    tickets = tickets_query.execute()
     
     # Backups
     backups = supabase.table("backups").select("id", count="exact").execute()
