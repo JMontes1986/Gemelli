@@ -8,6 +8,7 @@ import {
   Package,
   Search,
   Plus,
+  Shield,
   XCircle,
   CheckCircle,
 } from 'lucide-react';
@@ -163,18 +164,27 @@ const DeviceList: React.FC = () => {
   return (
     <div className="space-y-6">
       {canCreateDevices && (
-        <div className="flex justify-end">
-          <button
-            onClick={() => {
-              setShowCreateForm((prev) => !prev);
-              setFormError('');
-              setFormSuccess('');
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <a
+            href="/inventory/admin"
+            className="inline-flex items-center gap-2 px-4 py-2 border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 text-sm font-medium rounded-lg transition-colors"
           >
-            <Plus className="w-4 h-4" />
-            {showCreateForm ? 'Cerrar formulario' : 'Nuevo dispositivo'}
-          </button>
+            <Shield className="w-4 h-4" />
+            Ir al panel administrativo
+          </a>
+          <div className="flex justify-end">
+            <button
+              onClick={() => {
+                setShowCreateForm((prev) => !prev);
+                setFormError('');
+                setFormSuccess('');
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              {showCreateForm ? 'Cerrar formulario' : 'Nuevo dispositivo'}
+            </button>
+          </div>
         </div>
       )}
 
