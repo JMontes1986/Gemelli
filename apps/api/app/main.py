@@ -243,14 +243,26 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             "id, nombre, email, rol, org_unit_id, org_units(nombre)"
         ).eq("id", user_response.user.id).single().execute()
         
+        allowed_roles = {"DOCENTE", "ADMINISTRATIVO", "TI", "DIRECTOR", "LIDER_TI"}
+        raw_role = user_data.data.get("rol")
+        normalized_role = str(raw_role).strip().upper() if raw_role is not None else None
+
+        if normalized_role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Rol en Supabase inválido: {raw_role}"
+            )
+            
         return UserProfile(
             id=user_data.data["id"],
             nombre=user_data.data["nombre"],
             email=user_data.data["email"],
-            rol=user_data.data["rol"],
+            rol=normalized_role,
             org_unit_id=user_data.data["org_unit_id"],
             org_unit_nombre=user_data.data["org_units"]["nombre"]
         )
+        except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Error de autenticación: {str(e)}")
 
