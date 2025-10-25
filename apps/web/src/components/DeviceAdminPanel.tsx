@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { auth, devices } from '../lib/api';
+import { normalizeRole } from '../lib/roles';
 
 interface Device {
   id: string;
@@ -64,9 +65,10 @@ const DeviceAdminPanel: React.FC = () => {
       try {
         const profile = await auth.getProfile();
         const email = profile.email ? profile.email.toLowerCase() : null;
+        const normalizedRole = normalizeRole(profile.rol);
         const allowed =
-          profile.rol === 'TI' ||
-          profile.rol === 'LIDER_TI' ||
+          normalizedRole === 'TI' ||
+          normalizedRole === 'LIDER_TI' ||
           (email ? privilegedInventoryEmails.includes(email) : false);
 
         setCanManageInventory(allowed);
