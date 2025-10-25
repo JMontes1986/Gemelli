@@ -1,0 +1,26 @@
+---
+import MainLayout from '../../layouts/MainLayout.astro';
+import NewDeviceForm from '../../components/NewDeviceForm';
+---
+
+<MainLayout title="Nuevo dispositivo">
+  <div class="mx-auto max-w-4xl px-4 py-8">
+    <div class="mb-8">
+      <h1 class="mb-2 text-3xl font-bold text-gray-900">Registrar nuevo dispositivo</h1>
+      <p class="text-gray-600">
+        Añade equipos TI al inventario institucional con toda la información relevante para su seguimiento.
+      </p>
+    </div>
+
+    <NewDeviceForm client:load />
+  </div>
+</MainLayout>
+
+<script>
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      window.location.href = '/login';
+    }
+  }
+</script>
