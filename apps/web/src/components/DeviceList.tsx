@@ -1,7 +1,17 @@
 // src/components/DeviceList.tsx
 import React, { useState, useEffect } from 'react';
-import { Server, Laptop, Printer, Network, Package, Search, Filter } from 'lucide-react';
-import { devices } from '../lib/api';
+import {
+  Server,
+  Laptop,
+  Printer,
+  Network,
+  Package,
+  Search,
+  Plus,
+  XCircle,
+  CheckCircle,
+} from 'lucide-react';
+import { auth, devices } from '../lib/api';
 
 interface Device {
   id: string;
@@ -21,14 +31,39 @@ const DeviceList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
   const [filterTipo, setFilterTipo] = useState('');
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [formData, setFormData] = useState({
+    nombre: '',
+    tipo: 'PC',
+    estado: 'ACTIVO',
+    ubicacion: '',
+    notas: '',
+  });
+  const [creating, setCreating] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [formSuccess, setFormSuccess] = useState('');
 
   useEffect(() => {
     fetchDevices();
   }, [filterEstado, filterTipo]);
 
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const profile = await auth.getProfile();
+        setUserRole(profile.rol);
+      } catch (error) {
+        console.error('No se pudo obtener el perfil del usuario:', error);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+  
   const fetchDevices = async () => {
     try {
-      const params: any = {};
+      const params: Record<string, string> = {};
       if (filterEstado) params.estado = filterEstado;
       if (filterTipo) params.tipo = filterTipo;
       
@@ -43,11 +78,16 @@ const DeviceList: React.FC = () => {
 
   const getDeviceIcon = (tipo: string) => {
     switch (tipo) {
-      case 'PC': return <Server className="w-6 h-6" />;
-      case 'LAPTOP': return <Laptop className="w-6 h-6" />;
-      case 'IMPRESORA': return <Printer className="w-6 h-6" />;
-      case 'RED': return <Network className="w-6 h-6" />;
-      default: return <Package className="w-6 h-6" />;
+      case 'PC':
+        return <Server className="w-6 h-6" />;
+      case 'LAPTOP':
+        return <Laptop className="w-6 h-6" />;
+      case 'IMPRESORA':
+        return <Printer className="w-6 h-6" />;
+      case 'RED':
+        return <Network className="w-6 h-6" />;
+      default:
+        return <Package className="w-6 h-6" />;
     }
   };
 
@@ -64,11 +104,47 @@ const DeviceList: React.FC = () => {
     }
   };
 
-  const filteredDevices = deviceList.filter(device =>
-    device.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    device.ubicacion.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredDevices = deviceList.filter(
+    (device) =>
+      device.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      device.ubicacion.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const canCreateDevices = userRole === 'TI' || userRole === 'LIDER_TI';
+
+  const handleCreateDevice = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setCreating(true);
+    setFormError('');
+    setFormSuccess('');
+
+    try {
+      const payload = {
+        nombre: formData.nombre,
+        tipo: formData.tipo,
+        estado: formData.estado,
+        ubicacion: formData.ubicacion,
+        notas: formData.notas || undefined,
+      };
+
+      await devices.create(payload);
+      setFormSuccess('Dispositivo creado exitosamente.');
+      setFormData({ nombre: '', tipo: 'PC', estado: 'ACTIVO', ubicacion: '', notas: '' });
+      fetchDevices();
+    } catch (error: any) {
+      setFormError(error?.message || 'No se pudo crear el dispositivo.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleChange = (
+    field: keyof typeof formData
+  ) =>
+    (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      setFormData((prev) => ({ ...prev, [field]: event.target.value }));
+    };
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -79,6 +155,133 @@ const DeviceList: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {canCreateDevices && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => {
+              setShowCreateForm((prev) => !prev);
+              setFormError('');
+              setFormSuccess('');
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            {showCreateForm ? 'Cerrar formulario' : 'Nuevo dispositivo'}
+          </button>
+        </div>
+      )}
+
+      {showCreateForm && canCreateDevices && (
+        <div className="card">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Registrar dispositivo TI</h2>
+
+          {formError && (
+            <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <XCircle className="w-5 h-5" />
+              {formError}
+            </div>
+          )}
+
+          {formSuccess && (
+            <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+              <CheckCircle className="w-5 h-5" />
+              {formSuccess}
+            </div>
+          )}
+
+          <form onSubmit={handleCreateDevice} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nombre del equipo</label>
+                <input
+                  type="text"
+                  value={formData.nombre}
+                  onChange={handleChange('nombre')}
+                  className="input"
+                  placeholder="Ej. Laptop coordinador"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
+                <select
+                  value={formData.tipo}
+                  onChange={handleChange('tipo')}
+                  className="input"
+                  required
+                >
+                  <option value="PC">PC</option>
+                  <option value="LAPTOP">Laptop</option>
+                  <option value="IMPRESORA">Impresora</option>
+                  <option value="RED">Red</option>
+                  <option value="OTRO">Otro</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
+                <select
+                  value={formData.estado}
+                  onChange={handleChange('estado')}
+                  className="input"
+                  required
+                >
+                  <option value="ACTIVO">Activo</option>
+                  <option value="REPARACIÓN">En reparación</option>
+                  <option value="RETIRADO">Retirado</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Ubicación</label>
+                <input
+                  type="text"
+                  value={formData.ubicacion}
+                  onChange={handleChange('ubicacion')}
+                  className="input"
+                  placeholder="Ej. Biblioteca / Aula 203"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Notas</label>
+              <textarea
+                value={formData.notas}
+                onChange={handleChange('notas')}
+                className="input"
+                rows={3}
+                placeholder="Características relevantes, licencias, accesorios, etc."
+              />
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateForm(false);
+                  setFormError('');
+                  setFormSuccess('');
+                  setFormData({ nombre: '', tipo: 'PC', estado: 'ACTIVO', ubicacion: '', notas: '' });
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={creating}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-75 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                {creating ? 'Registrando...' : 'Registrar dispositivo'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      
       {/* Filtros y Búsqueda */}
       <div className="card">
         <div className="flex flex-col md:flex-row gap-4">
