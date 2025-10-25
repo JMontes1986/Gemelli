@@ -13,6 +13,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { auth, devices } from '../lib/api';
+import { normalizeRole, type UserRole } from '../lib/roles';
 
 interface Device {
   id: string;
@@ -32,7 +33,7 @@ const DeviceList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
   const [filterTipo, setFilterTipo] = useState('');
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -54,7 +55,7 @@ const DeviceList: React.FC = () => {
     const fetchProfile = async () => {
       try {
         const profile = await auth.getProfile();
-        setUserRole(profile.rol);
+        setUserRole(normalizeRole(profile.rol));
         setUserEmail(profile.email ? profile.email.toLowerCase() : null);
       } catch (error) {
         console.error('No se pudo obtener el perfil del usuario:', error);
