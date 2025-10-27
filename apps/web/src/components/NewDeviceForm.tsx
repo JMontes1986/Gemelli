@@ -40,7 +40,7 @@ const NewDeviceForm: React.FC = () => {
       try {
         const profile = await auth.getProfile();
         const normalizedRole = normalizeRole(profile.rol);
-        const email = profile.email ? profile.email.toLowerCase() : null;
+        const email = profile.email ? profile.email.trim().toLowerCase() : null;
 
         const allowed =
           normalizedRole === 'TI' ||
