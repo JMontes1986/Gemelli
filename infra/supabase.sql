@@ -179,6 +179,41 @@ CREATE INDEX idx_ticket_comments_ticket ON ticket_comments(ticket_id);
 CREATE INDEX idx_audit_chain_entity ON audit_chain(entity_id);
 CREATE INDEX idx_audit_chain_hash ON audit_chain(hash);
 
+-- ==================== FUNCIONES AUXILIARES PARA RLS ====================
+
+CREATE OR REPLACE FUNCTION current_user_org_unit()
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    result UUID;
+BEGIN
+    SELECT org_unit_id INTO result
+    FROM users
+    WHERE id = auth.uid();
+    RETURN result;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION current_user_has_role(target_role user_role)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    result BOOLEAN;
+BEGIN
+    SELECT EXISTS (
+        SELECT 1 FROM users
+        WHERE id = auth.uid() AND rol = target_role
+    ) INTO result;
+    RETURN COALESCE(result, FALSE);
+END;
+$$;
+
 -- ==================== ROW LEVEL SECURITY (RLS) ====================
 
 -- Habilitar RLS en todas las tablas
@@ -200,149 +235,103 @@ CREATE POLICY "Los usuarios pueden ver su propio perfil"
 
 CREATE POLICY "Los usuarios pueden ver otros usuarios de su org_unit"
     ON users FOR SELECT
-   USING (
-        EXISTS (
-            SELECT 1 FROM users
-            WHERE id = auth.uid() AND rol = 'LIDER_TI'
-        )
-        OR org_unit_id IN (
-            SELECT org_unit_id FROM users WHERE id = auth.uid()
-        )
+     USING (
+        current_user_has_role('LIDER_TI')
+        OR org_unit_id = current_user_org_unit()
     );
 
 CREATE POLICY "Solo LIDER_TI puede actualizar usuarios"
     ON users FOR UPDATE
     USING (
-        EXISTS (
-            SELECT 1 FROM users 
-            WHERE id = auth.uid() AND rol = 'LIDER_TI'
-        )
+        current_user_has_role('LIDER_TI')
     );
 
 -- Políticas para DEVICES
 CREATE POLICY "Los usuarios ven dispositivos de su org_unit"
     ON devices FOR SELECT
     USING (
-        EXISTS (
-            SELECT 1 FROM users
-            WHERE id = auth.uid() AND rol = 'LIDER_TI'
-        )
-        OR org_unit_id IN (
-            SELECT org_unit_id FROM users WHERE id = auth.uid()
-        )
+        current_user_has_role('LIDER_TI')
+        OR org_unit_id = current_user_org_unit()
     );
 
 CREATE POLICY "Solo TI y LIDER_TI pueden crear dispositivos"
     ON devices FOR INSERT
     WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM users 
-            WHERE id = auth.uid() AND rol IN ('TI', 'LIDER_TI')
+        current_user_has_role('LIDER_TI')
+        OR (
+            current_user_has_role('TI')
+            AND org_unit_id = current_user_org_unit()
         )
     );
 
 CREATE POLICY "Solo TI y LIDER_TI pueden actualizar dispositivos"
     ON devices FOR UPDATE
     USING (
-        (
-            EXISTS (
-                SELECT 1 FROM users
-                WHERE id = auth.uid() AND rol = 'LIDER_TI'
-            )
-        )
+        current_user_has_role('LIDER_TI')
         OR (
-            EXISTS (
-                SELECT 1 FROM users
-                WHERE id = auth.uid() AND rol = 'TI'
-            )
-            AND org_unit_id IN (
-                SELECT org_unit_id FROM users WHERE id = auth.uid()
-            )
+            current_user_has_role('TI')
+            AND org_unit_id = current_user_org_unit()
         )
     );
 
 CREATE POLICY "Solo LIDER_TI puede eliminar dispositivos"
     ON devices FOR DELETE
     USING (
-        EXISTS (
-            SELECT 1 FROM users 
-            WHERE id = auth.uid() AND rol = 'LIDER_TI'
-        )
+        current_user_has_role('LIDER_TI')
     );
 
 -- Políticas para DEVICE_SPECS
 CREATE POLICY "Los usuarios ven specs de dispositivos de su org_unit"
     ON device_specs FOR SELECT
     USING (
-        device_id IN (
+        current_user_has_role('LIDER_TI')
+        OR device_id IN (
             SELECT id FROM devices WHERE
-                EXISTS (
-                    SELECT 1 FROM users
-                    WHERE id = auth.uid() AND rol = 'LIDER_TI'
-                )
-                OR org_unit_id IN (
-                    SELECT org_unit_id FROM users WHERE id = auth.uid()
-                )
+                org_unit_id = current_user_org_unit()
         )
     );
 
 CREATE POLICY "Solo TI puede modificar specs"
     ON device_specs FOR ALL
     USING (
-        EXISTS (
-            SELECT 1 FROM users 
-            WHERE id = auth.uid() AND rol IN ('TI', 'LIDER_TI')
-        )
+        current_user_has_role('TI')
+        OR current_user_has_role('LIDER_TI')
     );
 
 -- Políticas para DEVICE_LOGS
 CREATE POLICY "Los usuarios ven logs de su org_unit"
     ON device_logs FOR SELECT
     USING (
-        device_id IN (
+        current_user_has_role('LIDER_TI')
+        OR device_id IN (
             SELECT id FROM devices WHERE
-                EXISTS (
-                    SELECT 1 FROM users
-                    WHERE id = auth.uid() AND rol = 'LIDER_TI'
-                )
-                OR org_unit_id IN (
-                    SELECT org_unit_id FROM users WHERE id = auth.uid()
-                )
+                org_unit_id = current_user_org_unit()
         )
     );
 
 CREATE POLICY "Solo TI puede crear logs"
     ON device_logs FOR INSERT
     WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM users 
-            WHERE id = auth.uid() AND rol IN ('TI', 'LIDER_TI')
-        )
+        current_user_has_role('TI')
+        OR current_user_has_role('LIDER_TI')
     );
 
 -- Políticas para BACKUPS
 CREATE POLICY "Los usuarios ven backups de su org_unit"
     ON backups FOR SELECT
     USING (
-        device_id IN (
+        current_user_has_role('LIDER_TI')
+        OR device_id IN (
             SELECT id FROM devices WHERE
-                EXISTS (
-                    SELECT 1 FROM users
-                    WHERE id = auth.uid() AND rol = 'LIDER_TI'
-                )
-                OR org_unit_id IN (
-                    SELECT org_unit_id FROM users WHERE id = auth.uid()
-                )
+                org_unit_id = current_user_org_unit()
         )
     );
 
 CREATE POLICY "Solo TI puede gestionar backups"
     ON backups FOR ALL
     USING (
-        EXISTS (
-            SELECT 1 FROM users 
-            WHERE id = auth.uid() AND rol IN ('TI', 'LIDER_TI')
-        )
+        current_user_has_role('TI')
+        OR current_user_has_role('LIDER_TI')
     );
 
 -- Políticas para TICKETS
@@ -351,10 +340,9 @@ CREATE POLICY "Los usuarios ven sus propios tickets"
     USING (
         solicitante_id = auth.uid()
         OR asignado_a = auth.uid()
-        OR EXISTS (
-            SELECT 1 FROM users 
-            WHERE id = auth.uid() AND rol IN ('TI', 'LIDER_TI', 'DIRECTOR')
-        )
+        OR current_user_has_role('TI')
+        OR current_user_has_role('LIDER_TI')
+        OR current_user_has_role('DIRECTOR')
     );
 
 CREATE POLICY "Todos los usuarios pueden crear tickets"
@@ -366,10 +354,8 @@ CREATE POLICY "Todos los usuarios pueden crear tickets"
 CREATE POLICY "Solo TI puede actualizar tickets"
     ON tickets FOR UPDATE
     USING (
-        EXISTS (
-            SELECT 1 FROM users 
-            WHERE id = auth.uid() AND rol IN ('TI', 'LIDER_TI')
-        )
+        current_user_has_role('TI')
+        OR current_user_has_role('LIDER_TI')
     );
 
 -- Políticas para TICKET_COMMENTS
@@ -380,10 +366,9 @@ CREATE POLICY "Los usuarios ven comentarios de tickets que pueden ver"
             SELECT id FROM tickets WHERE 
             solicitante_id = auth.uid()
             OR asignado_a = auth.uid()
-            OR EXISTS (
-                SELECT 1 FROM users 
-                WHERE id = auth.uid() AND rol IN ('TI', 'LIDER_TI', 'DIRECTOR')
-            )
+            OR current_user_has_role('TI')
+            OR current_user_has_role('LIDER_TI')
+            OR current_user_has_role('DIRECTOR')
         )
     );
 
@@ -391,13 +376,11 @@ CREATE POLICY "Los usuarios pueden comentar en sus tickets"
     ON ticket_comments FOR INSERT
     WITH CHECK (
         ticket_id IN (
-            SELECT id FROM tickets WHERE 
+            SELECT id FROM tickets WHERE
             solicitante_id = auth.uid()
             OR asignado_a = auth.uid()
-            OR EXISTS (
-                SELECT 1 FROM users 
-                WHERE id = auth.uid() AND rol IN ('TI', 'LIDER_TI')
-            )
+            OR current_user_has_role('TI')
+            OR current_user_has_role('LIDER_TI')
         )
     );
 
@@ -409,10 +392,8 @@ CREATE POLICY "Todos pueden ver registros de auditoría"
 CREATE POLICY "Solo el sistema puede insertar en audit_chain"
     ON audit_chain FOR INSERT
     WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM users 
-            WHERE id = auth.uid() AND rol IN ('TI', 'LIDER_TI')
-        )
+        current_user_has_role('TI')
+        OR current_user_has_role('LIDER_TI')
     );
 
 -- Políticas para ATTACHMENTS
