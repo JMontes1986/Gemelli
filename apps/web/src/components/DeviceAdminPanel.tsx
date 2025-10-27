@@ -80,7 +80,7 @@ const DeviceAdminPanel: React.FC = () => {
     const fetchProfile = async () => {
       try {
         const profile = await auth.getProfile();
-        const email = profile.email ? profile.email.toLowerCase() : null;
+        const email = profile.email ? profile.email.trim().toLowerCase() : null;
         const normalizedRole = normalizeRole(profile.rol);
         const allowed =
           normalizedRole === 'TI' ||
