@@ -1,5 +1,23 @@
 // src/lib/api.ts
-const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
+const getApiBaseUrl = () => {
+  const envUrl = import.meta.env.PUBLIC_API_URL;
+  if (envUrl && envUrl.trim()) {
+    return envUrl.replace(/\/$/, '');
+  }
+
+  if (typeof window !== 'undefined') {
+    const { origin, hostname } = window.location;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:8000';
+    }
+
+    return `${origin.replace(/\/$/, '')}/api`;
+  }
+
+  return 'http://localhost:8000';
+};
+
+const API_URL = getApiBaseUrl();
 
 // Helper para hacer requests autenticados
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
