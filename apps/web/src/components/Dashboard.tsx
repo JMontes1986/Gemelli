@@ -1,15 +1,18 @@
 // apps/web/src/components/Dashboard.tsx
 import React, { useState, useEffect } from 'react';
-import { 
-  Server, 
-  AlertCircle, 
-  CheckCircle, 
-  TrendingUp, 
+import {
+  Server,
+  AlertCircle,
+  CheckCircle,
+  TrendingUp,
   Database,
   Clock,
   Activity,
   Users,
-  Package
+  Package,
+  ClipboardList,
+  PlusCircle,
+  ShieldCheck
 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
@@ -93,6 +96,60 @@ const Dashboard: React.FC<DashboardProps> = ({ userId, userRole }) => {
         <p className="text-gray-600">Resumen general del sistema Gemelli IT</p>
       </div>
 
+      {/* Quick Inventory Actions */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="flex h-full flex-col justify-between gap-4 rounded-xl border border-blue-200 bg-blue-50 p-6 text-blue-900 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="rounded-lg bg-white/80 p-3 text-blue-600">
+              <ClipboardList className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Gestión de inventario</h2>
+              <p className="text-sm text-blue-800">
+                Registra nuevos equipos y mantén al día la información del inventario institucional.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <a
+              href="/inventory/new"
+              className="btn-primary inline-flex w-full items-center justify-center gap-2 sm:w-auto"
+            >
+              <PlusCircle className="h-4 w-4" />
+              Registrar equipo
+            </a>
+            <a
+              href="/inventory"
+              className="btn-secondary inline-flex w-full items-center justify-center gap-2 sm:w-auto"
+            >
+              Ver inventario
+            </a>
+          </div>
+        </div>
+
+        <div className="flex h-full flex-col justify-between gap-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="rounded-lg bg-blue-100 p-3 text-blue-600">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Panel administrativo</h2>
+              <p className="text-sm text-gray-600">
+                Accede a las herramientas avanzadas para actualizar estados, ubicaciones y notas de los dispositivos.
+              </p>
+            </div>
+          </div>
+          <div>
+            <a
+              href="/inventory/admin"
+              className="btn-primary inline-flex w-full items-center justify-center gap-2 sm:w-auto"
+            >
+              Administrar inventario
+            </a>
+          </div>
+        </div>
+      </div>
+      
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
