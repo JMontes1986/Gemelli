@@ -8,6 +8,8 @@ assert.equal(normalizeRole('lider ti'), 'LIDER_TI');
 assert.equal(normalizeRole('lider-ti'), 'LIDER_TI');
 assert.equal(normalizeRole('Líder TI'), 'LIDER_TI');
 assert.equal(normalizeRole('líder   ti'), 'LIDER_TI');
+assert.equal(normalizeRole('Líder de TI'), 'LIDER_TI');
+assert.equal(normalizeRole('Jefe TI'), 'LIDER_TI');
 assert.equal(normalizeRole(' DIRECTOR '), 'DIRECTOR');
 assert.equal(normalizeRole('ADMINISTRATIVO'), 'ADMINISTRATIVO');
 
