@@ -720,3 +720,4 @@ async def get_entity_audit(entity_id: str, user: UserProfile = Depends(get_curre
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+    
