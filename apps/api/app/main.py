@@ -10,6 +10,8 @@ import os
 import hashlib
 import json
 import hmac
+import unicodedata
+import re
 
 # Configuración
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -229,6 +231,25 @@ async def register_audit_event(action: str, entity_id: str, user_id: str, metada
 
 # ==================== AUTH ====================
 
+def normalize_role_value(role: Optional[str]) -> Optional[str]:
+    """Normaliza un valor de rol proveniente de Supabase."""
+    if role is None:
+        return None
+
+    # Remover acentos y normalizar caracteres
+    normalized = unicodedata.normalize("NFKD", str(role))
+    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+
+    # Limpiar espacios, guiones y mayúsculas
+    normalized = normalized.strip().upper()
+    normalized = normalized.replace("-", "_").replace(" ", "_")
+
+    # Colapsar múltiples guiones bajos consecutivos
+    normalized = re.sub(r"_+", "_", normalized)
+
+    return normalized or None
+
+
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> UserProfile:
     """Obtener usuario autenticado desde JWT"""
     try:
@@ -245,7 +266,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         
         allowed_roles = {"DOCENTE", "ADMINISTRATIVO", "TI", "DIRECTOR", "LIDER_TI"}
         raw_role = user_data.data.get("rol")
-        normalized_role = str(raw_role).strip().upper() if raw_role is not None else None
+        normalized_role = normalize_role_value(raw_role)
 
         if normalized_role not in allowed_roles:
             raise HTTPException(
@@ -261,7 +282,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             org_unit_id=user_data.data["org_unit_id"],
             org_unit_nombre=user_data.data["org_units"]["nombre"]
         )
-        except HTTPException:
+    except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Error de autenticación: {str(e)}")
@@ -338,7 +359,7 @@ async def create_device(
         )
     )
 ):
-    """Crear nuevo dispositivo (solo TI)"""
+    """Crear nuevo dispositivo (personal TI o Líder TI autorizado)"""
     device_data = device.model_dump()
     device_data["org_unit_id"] = user.org_unit_id
     device_data["creado_por"] = user.id
