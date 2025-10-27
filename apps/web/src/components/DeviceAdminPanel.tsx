@@ -3,6 +3,7 @@ import {
   AlertCircle,
   CheckCircle,
   Pencil,
+  Plus,
   RefreshCcw,
   Search,
   Shield,
@@ -32,10 +33,22 @@ interface FormState {
   notas: string;
 }
 
+interface CreateFormState extends FormState {
+  tipo: string;
+}
+
 const privilegedInventoryEmails = ['sistemas@colgemelli.edu.co'];
 
 const initialFormState: FormState = {
   nombre: '',
+  estado: 'ACTIVO',
+  ubicacion: '',
+  notas: '',
+};
+
+const initialCreateState: CreateFormState = {
+  nombre: '',
+  tipo: 'PC',
   estado: 'ACTIVO',
   ubicacion: '',
   notas: '',
@@ -47,11 +60,14 @@ const DeviceAdminPanel: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormState>(initialFormState);
+  const [createFormData, setCreateFormData] = useState<CreateFormState>(initialCreateState);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [canManageInventory, setCanManageInventory] = useState(false);
   const [profileChecked, setProfileChecked] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -176,6 +192,55 @@ const DeviceAdminPanel: React.FC = () => {
     setFormData((prev) => ({ ...prev, [field]: event.target.value }));
   };
 
+  const handleCreateChange = (
+    field: keyof CreateFormState
+  ) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    setCreateFormData((prev) => ({ ...prev, [field]: event.target.value }));
+  };
+
+  const handleCreateDevice = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setCreating(true);
+    setMessage(null);
+
+    try {
+      const payload = {
+        nombre: createFormData.nombre,
+        tipo: createFormData.tipo,
+        estado: createFormData.estado,
+        ubicacion: createFormData.ubicacion,
+        notas: createFormData.notas.trim() ? createFormData.notas : null,
+      };
+
+      const response = await devices.create(payload);
+      setMessage({ type: 'success', text: 'Dispositivo creado correctamente.' });
+      setCreateFormData(initialCreateState);
+      setShowCreateForm(false);
+
+      if (response?.data) {
+        const newDeviceId = response.data.id ?? null;
+        setSelectedDeviceId(newDeviceId);
+        setFormData({
+          nombre: response.data.nombre || '',
+          estado: response.data.estado || 'ACTIVO',
+          ubicacion: response.data.ubicacion || '',
+          notas: response.data.notas || '',
+        });
+      } else {
+        setSelectedDeviceId(null);
+      }
+
+      await fetchDevices();
+    } catch (error: any) {
+      setMessage({
+        type: 'error',
+        text: error?.message || 'No se pudo crear el dispositivo.',
+      });
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const renderContent = () => {
     if (!profileChecked) {
       return (
@@ -207,13 +272,30 @@ const DeviceAdminPanel: React.FC = () => {
                 Actualiza estados, ubicaciones y notas para mantener el control de los activos TI.
               </p>
             </div>
-            <button
-              onClick={fetchDevices}
-              className="inline-flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
-            >
-              <RefreshCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Recargar
-            </button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                onClick={() => {
+                  setShowCreateForm((prev) => !prev);
+                  setMessage(null);
+                  setSelectedDeviceId(null);
+                  setFormData(initialFormState);
+                  setCreateFormData(initialCreateState);
+                }}
+                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors ${
+                  showCreateForm ? 'bg-blue-700 hover:bg-blue-800' : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                <Plus className="h-4 w-4" />
+                {showCreateForm ? 'Cerrar formulario' : 'Agregar dispositivo'}
+              </button>
+              <button
+                onClick={fetchDevices}
+                className="inline-flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
+              >
+                <RefreshCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Recargar
+              </button>
+            </div>
           </div>
         </div>
 
@@ -294,7 +376,11 @@ const DeviceAdminPanel: React.FC = () => {
           <div className="card">
             <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
               <Pencil className="h-5 w-5 text-blue-600" />
-              {selectedDeviceId ? 'Editar dispositivo' : 'Selecciona un dispositivo'}
+               {showCreateForm
+                ? 'Registrar nuevo dispositivo'
+                : selectedDeviceId
+                ? 'Editar dispositivo'
+                : 'Selecciona un dispositivo'}
             </h3>
 
             {message && (
@@ -314,7 +400,92 @@ const DeviceAdminPanel: React.FC = () => {
               </div>
             )}
 
-            {selectedDeviceId ? (
+            {showCreateForm ? (
+              <form onSubmit={handleCreateDevice} className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Nombre</label>
+                  <input
+                    type="text"
+                    value={createFormData.nombre}
+                    onChange={handleCreateChange('nombre')}
+                    className="input"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Tipo</label>
+                  <select
+                    value={createFormData.tipo}
+                    onChange={handleCreateChange('tipo')}
+                    className="input"
+                    required
+                  >
+                    <option value="PC">PC</option>
+                    <option value="LAPTOP">Laptop</option>
+                    <option value="IMPRESORA">Impresora</option>
+                    <option value="RED">Equipo de red</option>
+                    <option value="OTRO">Otro</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Estado</label>
+                  <select
+                    value={createFormData.estado}
+                    onChange={handleCreateChange('estado')}
+                    className="input"
+                    required
+                  >
+                    <option value="ACTIVO">Activo</option>
+                    <option value="REPARACIÓN">En reparación</option>
+                    <option value="RETIRADO">Retirado</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Ubicación</label>
+                  <input
+                    type="text"
+                    value={createFormData.ubicacion}
+                    onChange={handleCreateChange('ubicacion')}
+                    className="input"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Notas</label>
+                  <textarea
+                    value={createFormData.notas}
+                    onChange={handleCreateChange('notas')}
+                    className="input"
+                    rows={4}
+                    placeholder="Observaciones, accesorios, responsables, etc."
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateForm(false);
+                      setCreateFormData(initialCreateState);
+                    }}
+                    className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creating}
+                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-75"
+                  >
+                    {creating ? 'Guardando...' : 'Registrar dispositivo'}
+                  </button>
+                </div>
+              </form>
+            ) : selectedDeviceId ? (
               <form onSubmit={handleUpdateDevice} className="space-y-4">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">Nombre</label>
