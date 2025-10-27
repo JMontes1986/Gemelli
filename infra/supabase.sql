@@ -200,9 +200,15 @@ CREATE POLICY "Los usuarios pueden ver su propio perfil"
 
 CREATE POLICY "Los usuarios pueden ver otros usuarios de su org_unit"
     ON users FOR SELECT
-    USING (org_unit_id IN (
-        SELECT org_unit_id FROM users WHERE id = auth.uid()
-    ));
+   USING (
+        EXISTS (
+            SELECT 1 FROM users
+            WHERE id = auth.uid() AND rol = 'LIDER_TI'
+        )
+        OR org_unit_id IN (
+            SELECT org_unit_id FROM users WHERE id = auth.uid()
+        )
+    );
 
 CREATE POLICY "Solo LIDER_TI puede actualizar usuarios"
     ON users FOR UPDATE
@@ -217,7 +223,11 @@ CREATE POLICY "Solo LIDER_TI puede actualizar usuarios"
 CREATE POLICY "Los usuarios ven dispositivos de su org_unit"
     ON devices FOR SELECT
     USING (
-        org_unit_id IN (
+        EXISTS (
+            SELECT 1 FROM users
+            WHERE id = auth.uid() AND rol = 'LIDER_TI'
+        )
+        OR org_unit_id IN (
             SELECT org_unit_id FROM users WHERE id = auth.uid()
         )
     );
@@ -234,12 +244,20 @@ CREATE POLICY "Solo TI y LIDER_TI pueden crear dispositivos"
 CREATE POLICY "Solo TI y LIDER_TI pueden actualizar dispositivos"
     ON devices FOR UPDATE
     USING (
-        EXISTS (
-            SELECT 1 FROM users 
-            WHERE id = auth.uid() AND rol IN ('TI', 'LIDER_TI')
+        (
+            EXISTS (
+                SELECT 1 FROM users
+                WHERE id = auth.uid() AND rol = 'LIDER_TI'
+            )
         )
-        AND org_unit_id IN (
-            SELECT org_unit_id FROM users WHERE id = auth.uid()
+        OR (
+            EXISTS (
+                SELECT 1 FROM users
+                WHERE id = auth.uid() AND rol = 'TI'
+            )
+            AND org_unit_id IN (
+                SELECT org_unit_id FROM users WHERE id = auth.uid()
+            )
         )
     );
 
@@ -257,9 +275,14 @@ CREATE POLICY "Los usuarios ven specs de dispositivos de su org_unit"
     ON device_specs FOR SELECT
     USING (
         device_id IN (
-            SELECT id FROM devices WHERE org_unit_id IN (
-                SELECT org_unit_id FROM users WHERE id = auth.uid()
-            )
+            SELECT id FROM devices WHERE
+                EXISTS (
+                    SELECT 1 FROM users
+                    WHERE id = auth.uid() AND rol = 'LIDER_TI'
+                )
+                OR org_unit_id IN (
+                    SELECT org_unit_id FROM users WHERE id = auth.uid()
+                )
         )
     );
 
@@ -277,9 +300,14 @@ CREATE POLICY "Los usuarios ven logs de su org_unit"
     ON device_logs FOR SELECT
     USING (
         device_id IN (
-            SELECT id FROM devices WHERE org_unit_id IN (
-                SELECT org_unit_id FROM users WHERE id = auth.uid()
-            )
+            SELECT id FROM devices WHERE
+                EXISTS (
+                    SELECT 1 FROM users
+                    WHERE id = auth.uid() AND rol = 'LIDER_TI'
+                )
+                OR org_unit_id IN (
+                    SELECT org_unit_id FROM users WHERE id = auth.uid()
+                )
         )
     );
 
@@ -297,9 +325,14 @@ CREATE POLICY "Los usuarios ven backups de su org_unit"
     ON backups FOR SELECT
     USING (
         device_id IN (
-            SELECT id FROM devices WHERE org_unit_id IN (
-                SELECT org_unit_id FROM users WHERE id = auth.uid()
-            )
+            SELECT id FROM devices WHERE
+                EXISTS (
+                    SELECT 1 FROM users
+                    WHERE id = auth.uid() AND rol = 'LIDER_TI'
+                )
+                OR org_unit_id IN (
+                    SELECT org_unit_id FROM users WHERE id = auth.uid()
+                )
         )
     );
 
