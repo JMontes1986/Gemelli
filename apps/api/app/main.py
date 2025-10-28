@@ -290,12 +290,17 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 def require_role(allowed_roles: List[str], allowed_emails: Optional[List[str]] = None):
     """Decorator para verificar roles"""
 
-    allowed_emails = allowed_emails or []
+    normalized_allowed_emails = {
+        email.strip().lower()
+        for email in (allowed_emails or [])
+        if isinstance(email, str) and email.strip()
+    }
     
     def role_checker(user: UserProfile = Depends(get_current_user)):
         if user.rol == "LIDER_TI":
             return user
-        if user.email in allowed_emails:
+        user_email = (user.email or "").strip().lower()
+        if user_email and user_email in normalized_allowed_emails:
             return user
         if user.rol not in allowed_roles:
             raise HTTPException(status_code=403, detail="Permisos insuficientes")
