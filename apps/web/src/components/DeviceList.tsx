@@ -11,7 +11,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { auth, devices } from '../lib/api';
-import { normalizeRole, type UserRole } from '../lib/roles';
+import { canManageInventory as canManageInventoryFromProfile } from '../lib/access/index';
 
 interface Device {
   id: string;
@@ -31,8 +31,7 @@ const DeviceList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
   const [filterTipo, setFilterTipo] = useState('');
-  const [userRole, setUserRole] = useState<UserRole | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [canCreateDevices, setCanCreateDevices] = useState(false);
 
   useEffect(() => {
     fetchDevices();
@@ -42,9 +41,7 @@ const DeviceList: React.FC = () => {
     const fetchProfile = async () => {
       try {
         const profile = await auth.getProfile();
-        const rawRole = (profile?.rol ?? profile?.role ?? null) as string | null;
-        setUserRole(normalizeRole(rawRole));
-        setUserEmail(profile.email ? profile.email.toLowerCase() : null);
+        setCanCreateDevices(canManageInventoryFromProfile(profile));
       } catch (error) {
         console.error('No se pudo obtener el perfil del usuario:', error);
       }
@@ -102,13 +99,7 @@ const DeviceList: React.FC = () => {
       device.ubicacion.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const privilegedInventoryEmails = ['sistemas@colgemelli.edu.co'];
-
-  const canCreateDevices =
-    userRole === 'TI' ||
-    userRole === 'LIDER_TI' ||
-    (userEmail ? privilegedInventoryEmails.includes(userEmail) : false);
-  if (loading) {
+    if (loading) {
     
     return (
       <div className="flex items-center justify-center py-12">
