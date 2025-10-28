@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, PlusCircle, Shield, XCircle } from 'lucide-react';
 
 import { auth, devices } from '../lib/api';
-import { normalizeRole } from '../lib/roles';
+import { canManageInventory as canManageInventoryFromProfile } from '../lib/access/index';
 
 type DeviceType = 'PC' | 'LAPTOP' | 'IMPRESORA' | 'RED' | 'OTRO';
 type DeviceStatus = 'ACTIVO' | 'REPARACIÓN' | 'RETIRADO';
@@ -15,8 +15,6 @@ interface FormState {
   imagen: string;
   notas: string;
 }
-
-const privilegedInventoryEmails = ['sistemas@colgemelli.edu.co'];
 
 const initialFormState: FormState = {
   nombre: '',
@@ -39,16 +37,7 @@ const NewDeviceForm: React.FC = () => {
     const verifyPermissions = async () => {
       try {
         const profile = await auth.getProfile();
-        const rawRole = (profile?.rol ?? profile?.role ?? null) as string | null;
-        const normalizedRole = normalizeRole(rawRole);
-        const email = profile.email ? profile.email.trim().toLowerCase() : null;
-
-        const allowed =
-          normalizedRole === 'TI' ||
-          normalizedRole === 'LIDER_TI' ||
-          (email ? privilegedInventoryEmails.includes(email) : false);
-
-        setCanManageInventory(allowed);
+       setCanManageInventory(canManageInventoryFromProfile(profile));
       } catch (permissionError) {
         console.error('No se pudo obtener el perfil del usuario:', permissionError);
         setCanManageInventory(false);
