@@ -39,7 +39,8 @@ const NewDeviceForm: React.FC = () => {
     const verifyPermissions = async () => {
       try {
         const profile = await auth.getProfile();
-        const normalizedRole = normalizeRole(profile.rol);
+        const rawRole = (profile?.rol ?? profile?.role ?? null) as string | null;
+        const normalizedRole = normalizeRole(rawRole);
         const email = profile.email ? profile.email.trim().toLowerCase() : null;
 
         const allowed =
