@@ -42,7 +42,8 @@ const DeviceList: React.FC = () => {
     const fetchProfile = async () => {
       try {
         const profile = await auth.getProfile();
-        setUserRole(normalizeRole(profile.rol));
+        const rawRole = (profile?.rol ?? profile?.role ?? null) as string | null;
+        setUserRole(normalizeRole(rawRole));
         setUserEmail(profile.email ? profile.email.toLowerCase() : null);
       } catch (error) {
         console.error('No se pudo obtener el perfil del usuario:', error);
