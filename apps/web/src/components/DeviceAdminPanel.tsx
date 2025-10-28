@@ -81,7 +81,8 @@ const DeviceAdminPanel: React.FC = () => {
       try {
         const profile = await auth.getProfile();
         const email = profile.email ? profile.email.trim().toLowerCase() : null;
-        const normalizedRole = normalizeRole(profile.rol);
+        const rawRole = (profile?.rol ?? profile?.role ?? null) as string | null;
+        const normalizedRole = normalizeRole(rawRole);
         const allowed =
           normalizedRole === 'TI' ||
           normalizedRole === 'LIDER_TI' ||
