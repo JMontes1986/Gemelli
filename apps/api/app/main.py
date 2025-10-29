@@ -12,7 +12,11 @@ import json
 import hmac
 import unicodedata
 import re
-
+try:
+    from mangum import Mangum  # type: ignore
+except ImportError:  # pragma: no cover - optional dependency for serverless
+    Mangum = None  # type: ignore[assignment]
+    
 # Configuración
 SUPABASE_URL_ENV_KEYS = (
     "SUPABASE_URL",
@@ -1203,6 +1207,13 @@ async def get_entity_audit(entity_id: str, user: UserProfile = Depends(get_curre
     ).execute()
     
     return {"data": response.data, "count": len(response.data)}
+
+
+if Mangum:
+    handler = Mangum(app)
+else:  # pragma: no cover - exposes app for ASGI servers
+    handler = app  # type: ignore[assignment]
+
 
 if __name__ == "__main__":
     import uvicorn
