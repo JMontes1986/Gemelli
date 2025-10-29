@@ -1,7 +1,5 @@
 import { normalizeRole } from '../roles';
 
-export const PRIVILEGED_INVENTORY_EMAILS = ['sistemas@colgemelli.edu.co'];
-
 type ProfileLike = {
   email?: string | null;
   role?: string | null;
@@ -42,49 +40,13 @@ const unwrapProfile = (profile: PossiblyWrappedProfile | null | undefined): Prof
   return profile;
 };
 
-const extractCandidateEmails = (
-  rawProfile: PossiblyWrappedProfile | null | undefined
-): string[] => {
-  const profile = unwrapProfile(rawProfile);
-  
-  if (!profile) {
-    return [];
-  }
-
-  const candidates = new Set<string>();
-  const data = profile as Record<string, unknown>;
-
-  const rawValues = [
-    profile.email,
-    // Campos alternativos que podrían existir según la respuesta del API
-    data.email_institucional,
-    data.correo,
-    data.correo_institucional,
-    data.correoInstitucional,
-    data.usuario_email,
-  ];
-
-  rawValues.forEach((value) => {
-    if (typeof value === 'string' && value.trim()) {
-      candidates.add(value.trim().toLowerCase());
-    }
-  });
-
-  return Array.from(candidates);
-};
-
 export const canManageInventory = (
   rawProfile: PossiblyWrappedProfile | null | undefined
 ): boolean => {
   const profile = unwrapProfile(rawProfile);
   const normalizedRole = normalizeRole((profile?.rol ?? profile?.role ?? null) as string | null);
 
-  if (normalizedRole === 'TI' || normalizedRole === 'LIDER_TI') {
-    return true;
-  }
-
-  const emails = extractCandidateEmails(profile);
-  return emails.some((email) => PRIVILEGED_INVENTORY_EMAILS.includes(email));
+  return normalizedRole === 'TI' || normalizedRole === 'LIDER_TI';
 };
 
 export const hasPrivilegedInventoryEmail = (
