@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Activity, ClipboardList, Shield, ShieldCheck, Users } from 'lucide-react';
 
 import { auth } from '../lib/api';
+import { normalizeRole } from '../lib/roles';
 import AdminUserManager from './AdminUserManager';
 import InventoryPermissionManager from './InventoryPermissionManager';
 
@@ -108,7 +109,9 @@ const AdminConsole: React.FC = () => {
     );
   }
 
-  if (!profile || profile.rol !== 'LIDER_TI') {
+  const normalizedRole = normalizeRole(profile?.rol);
+
+  if (!profile || normalizedRole !== 'LIDER_TI') {
     return (
       <div className="mx-auto max-w-2xl rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center text-amber-800">
         <h2 className="text-2xl font-semibold">Acceso restringido</h2>
