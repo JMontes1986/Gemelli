@@ -12,6 +12,7 @@ supabase==2.3.0
 postgrest-py==0.13.1
 psycopg2-binary==2.9.9
 sqlalchemy==2.0.25
+mangum==0.17.0
 
 # Autenticación y seguridad
 python-jose[cryptography]==3.3.0
