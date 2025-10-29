@@ -1,5 +1,5 @@
 # apps/api/app/main.py
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from supabase import create_client, Client
@@ -29,6 +29,8 @@ SUPABASE_KEY_ENV_KEYS = (
 )
 JWT_SECRET = os.getenv("JWT_SECRET")
 AUDIT_SECRET = os.getenv("AUDIT_SECRET", "change-this-secret-key-in-production")
+
+EMAIL_REGEX = re.compile(r"^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$", re.IGNORECASE)
 
 class LazySupabaseClient:
     """Inicializa el cliente de Supabase únicamente cuando se necesita."""
@@ -157,6 +159,18 @@ class TicketComment(BaseModel):
     comentario: str
     adjunto_url: Optional[str] = None
 
+
+class InventoryPermissionCreate(BaseModel):
+    email: str = Field(..., max_length=255)
+    notes: Optional[str] = Field(default=None, max_length=500)
+
+
+class InventoryPermissionResponse(BaseModel):
+    id: str
+    email: str
+    notes: Optional[str]
+    granted_at: Optional[datetime]
+    granted_by: Optional[str]
 # ==================== AUDIT HASH SYSTEM ====================
 
 def generate_audit_hash(action: str, entity_id: str, user_id: str, data: dict = None) -> dict:
@@ -360,6 +374,53 @@ def require_role(allowed_roles: List[str], allowed_emails: Optional[List[str]] =
         
     return role_checker
 
+
+def normalize_email_value(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    normalized = value.strip().lower()
+    return normalized or None
+
+
+def get_inventory_permission_by_email(email: Optional[str]) -> Optional[dict]:
+    normalized = normalize_email_value(email)
+    if not normalized:
+        return None
+
+    try:
+        response = (
+            supabase.table("inventory_access_grants")
+            .select("id, email, notes, granted_at, granted_by")
+            .eq("email", normalized)
+            .limit(1)
+            .execute()
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"No se pudo verificar permisos delegados: {exc}")
+
+    if response.data:
+        return response.data[0]
+    return None
+
+
+def inventory_override_exists(email: Optional[str]) -> bool:
+    return get_inventory_permission_by_email(email) is not None
+
+
+def require_inventory_manager():
+    async def dependency(user: UserProfile = Depends(get_current_user)):
+        if user.rol in ("TI", "LIDER_TI"):
+            return user
+
+        if inventory_override_exists(user.email):
+            return user
+
+        raise HTTPException(status_code=403, detail="Permisos insuficientes")
+
+    return dependency
+
 # ==================== ROUTES ====================
 
 @app.get("/")
@@ -409,12 +470,7 @@ async def list_devices(
 @app.post("/inventory/devices", status_code=201)
 async def create_device(
     device: DeviceCreate,
-    user: UserProfile = Depends(
-        require_role(
-            ["TI", "LIDER_TI"],
-            allowed_emails=["sistemas@colgemelli.edu.co"],
-        )
-    )
+    user: UserProfile = Depends(require_inventory_manager()),
 ):
     """Crear nuevo dispositivo (personal TI o Líder TI autorizado)"""
     device_data = device.model_dump()
@@ -487,7 +543,7 @@ async def get_device_cv(
 async def update_device(
     device_id: str,
     updates: DeviceUpdate,
-    user: UserProfile = Depends(require_role(["TI", "LIDER_TI"]))
+    user: UserProfile = Depends(require_inventory_manager()),
 ):
     """Actualizar dispositivo"""
     update_data = {k: v for k, v in updates.model_dump().items() if v is not None}
@@ -521,6 +577,94 @@ async def update_device(
     
     return {"data": response.data[0], "message": "Dispositivo actualizado"}
 
+# --- INVENTORY PERMISSIONS ---
+
+@app.get("/inventory/permissions/check")
+async def check_inventory_permission(user: UserProfile = Depends(get_current_user)):
+    if user.rol in ("TI", "LIDER_TI"):
+        return {"can_manage": True, "source": "role"}
+
+    override = get_inventory_permission_by_email(user.email)
+    if override:
+        return {"can_manage": True, "source": "override", "permission": override}
+
+    return {"can_manage": False, "source": "none"}
+
+
+@app.get("/inventory/permissions", response_model=dict)
+async def list_inventory_permissions(
+    user: UserProfile = Depends(require_role(["LIDER_TI"]))
+):
+    response = (
+        supabase.table("inventory_access_grants")
+        .select("id, email, notes, granted_at, granted_by, granted_by_user:users!granted_by(nombre, email)")
+        .order("email", desc=False)
+        .execute()
+    )
+    return {"data": response.data, "count": len(response.data)}
+
+
+@app.post("/inventory/permissions", status_code=201)
+async def create_inventory_permission(
+    permission: InventoryPermissionCreate,
+    user: UserProfile = Depends(require_role(["LIDER_TI"]))
+):
+    normalized_email = normalize_email_value(permission.email)
+
+    if not normalized_email or not EMAIL_REGEX.match(normalized_email):
+        raise HTTPException(status_code=422, detail="Correo electrónico inválido")
+
+    if inventory_override_exists(normalized_email):
+        raise HTTPException(status_code=409, detail="El correo ya tiene permisos especiales")
+
+    payload = {
+        "email": normalized_email,
+        "notes": permission.notes,
+        "granted_by": user.id,
+        "granted_at": datetime.utcnow().isoformat(),
+    }
+
+    response = supabase.table("inventory_access_grants").insert(payload).execute()
+
+    created = response.data[0]
+
+    await register_audit_event(
+        "GRANT_INVENTORY_ACCESS",
+        created["id"],
+        user.id,
+        {"email": normalized_email}
+    )
+
+    return {"data": created, "message": "Permiso concedido"}
+
+
+@app.delete("/inventory/permissions/{permission_id}", status_code=204)
+async def delete_inventory_permission(
+    permission_id: str,
+    user: UserProfile = Depends(require_role(["LIDER_TI"]))
+):
+    existing = (
+        supabase.table("inventory_access_grants")
+        .select("id, email")
+        .eq("id", permission_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Permiso no encontrado")
+
+    supabase.table("inventory_access_grants").delete().eq("id", permission_id).execute()
+
+    await register_audit_event(
+        "REVOKE_INVENTORY_ACCESS",
+        permission_id,
+        user.id,
+        {"email": existing.data[0]["email"]}
+    )
+
+    return Response(status_code=204)
+    
 # --- BACKUPS ---
 
 @app.get("/backups")
