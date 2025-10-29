@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle,
@@ -56,37 +56,54 @@ const AdminUserManager: React.FC = () => {
   const [creating, setCreating] = useState(false);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [message, setMessage] = useState<MessageState | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const runIfMounted = useCallback((fn: () => void) => {
+    if (isMountedRef.current) {
+      fn();
+    }
+  }, []);
 
   const loadUsers = async (showSpinner = false) => {
     if (showSpinner) {
-      setLoading(true);
+      runIfMounted(() => setLoading(true));
     }
 
     try {
       const response = await admin.listUsers();
-      setUsers(response?.data ?? []);
+      runIfMounted(() => setUsers(response?.data ?? []));
     } catch (error: any) {
-      setMessage({
-        type: 'error',
-        text: error?.message || 'No se pudieron cargar los usuarios.',
-      });
+      runIfMounted(() =>
+        setMessage({
+          type: 'error',
+          text: error?.message || 'No se pudieron cargar los usuarios.',
+        })
+      );
     } finally {
-      setLoading(false);
+      runIfMounted(() => setLoading(false));
     }
   };
 
   const loadOrgUnits = async () => {
-    setOrgUnitsLoading(true);
+    runIfMounted(() => setOrgUnitsLoading(true));
     try {
       const response = await admin.listOrgUnits();
-      setOrgUnits(response?.data ?? []);
+      runIfMounted(() => setOrgUnits(response?.data ?? []));
     } catch (error: any) {
-      setMessage({
-        type: 'error',
-        text: error?.message || 'No se pudieron cargar las unidades organizacionales.',
-      });
+      runIfMounted(() =>
+        setMessage({
+          type: 'error',
+          text: error?.message || 'No se pudieron cargar las unidades organizacionales.',
+        })
+      );
     } finally {
-      setOrgUnitsLoading(false);
+      runIfMounted(() => setOrgUnitsLoading(false));
     }
   };
 
@@ -101,9 +118,9 @@ const AdminUserManager: React.FC = () => {
       return;
     }
 
-    const timeout = window.setTimeout(() => setMessage(null), 5000);
+    const timeout = window.setTimeout(() => runIfMounted(() => setMessage(null)), 5000);
     return () => window.clearTimeout(timeout);
-  }, [message]);
+  }, [message, runIfMounted]);
 
   const orderedUsers = useMemo(() => {
     return [...users].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
@@ -118,14 +135,14 @@ const AdminUserManager: React.FC = () => {
 
   const handleCreateUser = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setMessage(null);
+    runIfMounted(() => setMessage(null));
 
     if (!form.nombre.trim() || !form.email.trim() || !form.password.trim()) {
-      setMessage({ type: 'error', text: 'Completa todos los campos obligatorios.' });
+      runIfMounted(() => setMessage({ type: 'error', text: 'Completa todos los campos obligatorios.' }));
       return;
     }
 
-    setCreating(true);
+    runIfMounted(() => setCreating(true));
 
     try {
       await admin.createUser({
@@ -137,16 +154,20 @@ const AdminUserManager: React.FC = () => {
         activo: form.activo,
       });
 
-      setMessage({ type: 'success', text: 'Usuario creado correctamente.' });
-      setForm(INITIAL_FORM_STATE);
+      runIfMounted(() => {
+        setMessage({ type: 'success', text: 'Usuario creado correctamente.' });
+        setForm(INITIAL_FORM_STATE);
+      });
       await loadUsers();
     } catch (error: any) {
-      setMessage({
-        type: 'error',
-        text: error?.message || 'No se pudo crear el usuario.',
-      });
+      runIfMounted(() =>
+        setMessage({
+          type: 'error',
+          text: error?.message || 'No se pudo crear el usuario.',
+        })
+      );
     } finally {
-      setCreating(false);
+      runIfMounted(() => setCreating(false));
     }
   };
 
@@ -155,20 +176,24 @@ const AdminUserManager: React.FC = () => {
       return;
     }
 
-    setUpdatingUserId(userId);
-    setMessage(null);
+    runIfMounted(() => {
+      setUpdatingUserId(userId);
+      setMessage(null);
+    });
 
     try {
       await admin.updateUser(userId, { rol: newRole });
-      setMessage({ type: 'success', text: 'Rol actualizado correctamente.' });
+      runIfMounted(() => setMessage({ type: 'success', text: 'Rol actualizado correctamente.' }));
       await loadUsers();
     } catch (error: any) {
-      setMessage({
-        type: 'error',
-        text: error?.message || 'No se pudo actualizar el rol del usuario.',
-      });
+      runIfMounted(() =>
+        setMessage({
+          type: 'error',
+          text: error?.message || 'No se pudo actualizar el rol del usuario.',
+        })
+      );
     } finally {
-      setUpdatingUserId(null);
+      runIfMounted(() => setUpdatingUserId(null));
     }
   };
 
@@ -178,38 +203,46 @@ const AdminUserManager: React.FC = () => {
       return;
     }
 
-    setUpdatingUserId(userId);
-    setMessage(null);
+    runIfMounted(() => {
+      setUpdatingUserId(userId);
+      setMessage(null);
+    });
 
     try {
       await admin.updateUser(userId, { org_unit_id: newOrgUnit || null });
-      setMessage({ type: 'success', text: 'Unidad organizacional actualizada.' });
+      runIfMounted(() => setMessage({ type: 'success', text: 'Unidad organizacional actualizada.' }));
       await loadUsers();
     } catch (error: any) {
-      setMessage({
-        type: 'error',
-        text: error?.message || 'No se pudo actualizar la unidad organizacional.',
-      });
+      runIfMounted(() =>
+        setMessage({
+          type: 'error',
+          text: error?.message || 'No se pudo actualizar la unidad organizacional.',
+        })
+      );
     } finally {
-      setUpdatingUserId(null);
+      runIfMounted(() => setUpdatingUserId(null));
     }
   };
 
   const handleToggleActive = async (user: AdminUser) => {
-    setUpdatingUserId(user.id);
-    setMessage(null);
+    runIfMounted(() => {
+      setUpdatingUserId(user.id);
+      setMessage(null);
+    });
 
     try {
       await admin.updateUser(user.id, { activo: !user.activo });
-      setMessage({ type: 'success', text: 'Estado del usuario actualizado.' });
+      runIfMounted(() => setMessage({ type: 'success', text: 'Estado del usuario actualizado.' }));
       await loadUsers();
     } catch (error: any) {
-      setMessage({
-        type: 'error',
-        text: error?.message || 'No se pudo actualizar el estado del usuario.',
-      });
+      runIfMounted(() =>
+        setMessage({
+          type: 'error',
+          text: error?.message || 'No se pudo actualizar el estado del usuario.',
+        })
+      );
     } finally {
-      setUpdatingUserId(null);
+      runIfMounted(() => setUpdatingUserId(null));
     }
   };
 
@@ -223,23 +256,27 @@ const AdminUserManager: React.FC = () => {
     }
 
     if (newPassword.trim().length < 8) {
-      setMessage({ type: 'error', text: 'La contraseña debe tener al menos 8 caracteres.' });
+      runIfMounted(() => setMessage({ type: 'error', text: 'La contraseña debe tener al menos 8 caracteres.' }));
       return;
     }
 
-    setUpdatingUserId(userId);
-    setMessage(null);
+    runIfMounted(() => {
+      setUpdatingUserId(userId);
+      setMessage(null);
+    });
 
     try {
       await admin.updateUser(userId, { password: newPassword.trim() });
-      setMessage({ type: 'success', text: 'Contraseña restablecida correctamente.' });
+      runIfMounted(() => setMessage({ type: 'success', text: 'Contraseña restablecida correctamente.' }));
     } catch (error: any) {
-      setMessage({
-        type: 'error',
-        text: error?.message || 'No se pudo restablecer la contraseña.',
-      });
+      runIfMounted(() =>
+        setMessage({
+          type: 'error',
+          text: error?.message || 'No se pudo restablecer la contraseña.',
+        })
+      );
     } finally {
-      setUpdatingUserId(null);
+      runIfMounted(() => setUpdatingUserId(null));
     }
   };
 
