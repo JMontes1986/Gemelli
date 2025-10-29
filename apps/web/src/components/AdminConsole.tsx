@@ -20,19 +20,45 @@ const AdminConsole: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const token = localStorage.getItem('access_token');
+
+    if (!token) {
+      setError('Tu sesión ha expirado. Inicia sesión nuevamente para acceder al centro administrativo.');
+      setLoading(false);
+      return;
+    }
+
+    let isActive = true;
+
     const loadProfile = async () => {
       try {
         const data = await auth.getProfile();
+        if (!isActive) {
+          return;
+        }
         setProfile(data);
       } catch (err: any) {
+        if (!isActive) {
+          return;
+        }
         const detail = err?.message || 'No se pudo cargar el perfil del usuario.';
         setError(detail);
       } finally {
-        setLoading(false);
+        if (isActive) {
+          setLoading(false);
+        }
       }
     };
 
     loadProfile();
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   if (loading) {
