@@ -247,9 +247,12 @@ const AdminUserManager: React.FC = () => {
   };
 
   const handleResetPassword = async (userId: string, userName: string) => {
-    const newPassword = window.prompt(
-      `Ingresa una nueva contraseña temporal para ${userName}. Debe tener al menos 8 caracteres.`
-    );
+    const newPassword =
+      typeof window !== 'undefined'
+        ? window.prompt(
+            `Ingresa una nueva contraseña temporal para ${userName}. Debe tener al menos 8 caracteres.`
+          )
+        : null;
 
     if (!newPassword) {
       return;
