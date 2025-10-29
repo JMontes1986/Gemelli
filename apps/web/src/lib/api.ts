@@ -21,7 +21,7 @@ const API_URL = getApiBaseUrl();
 
 // Helper para hacer requests autenticados
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
-  const token = localStorage.getItem('access_token');
+  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
   
   const headers = {
     'Content-Type': 'application/json',
