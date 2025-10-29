@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Activity, Menu, X, LogOut, User } from 'lucide-react';
 import { tryGetSupabaseClient, logout } from '../lib/supabase';
 import { auth } from '../lib/api';
-
+import { normalizeRole } from '../lib/roles';
 interface UserProfile {
   id: string;
   nombre: string;
@@ -97,7 +97,9 @@ const Navbar: React.FC = () => {
     }
   };
 
-  const isGlobalAdmin = profile?.rol === 'LIDER_TI';
+  
+  const normalizedRole = useMemo(() => normalizeRole(profile?.rol), [profile?.rol]);
+  const isGlobalAdmin = normalizedRole === 'LIDER_TI';
 
   const navigation = useMemo(() => {
     const items = [
