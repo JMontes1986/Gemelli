@@ -24,9 +24,15 @@ const AdminConsole: React.FC = () => {
       return;
     }
 
-    const token = localStorage.getItem('access_token');
+    let storedToken: string | null = null;
 
-    if (!token) {
+    try {
+      storedToken = window.localStorage.getItem('access_token');
+    } catch (storageError) {
+      console.error('No se pudo leer el token desde el almacenamiento local:', storageError);
+    }
+
+    if (!storedToken) {
       setError('Tu sesión ha expirado. Inicia sesión nuevamente para acceder al centro administrativo.');
       setLoading(false);
       return;
@@ -60,6 +66,24 @@ const AdminConsole: React.FC = () => {
       isActive = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!error || typeof window === 'undefined') {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      try {
+        window.location.replace('/login');
+      } catch (redirectError) {
+        console.error('No se pudo redirigir al inicio de sesión:', redirectError);
+      }
+    }, 4000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [error]);
 
   if (loading) {
     return (
