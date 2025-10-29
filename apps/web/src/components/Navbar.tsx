@@ -1,23 +1,42 @@
 // src/components/Navbar.tsx
 import React, { useState, useEffect } from 'react';
 import { Activity, Menu, X, LogOut, User } from 'lucide-react';
-import { supabase, logout } from '../lib/supabase';
+import { tryGetSupabaseClient, logout } from '../lib/supabase';
 
 const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [supabase, setSupabase] = useState<ReturnType<typeof tryGetSupabaseClient>>();
 
   useEffect(() => {
+    const client = tryGetSupabaseClient();
+
+    if (!client) {
+      return;
+    }
+
+    setSupabase(client);
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) {
+      return;
+    }
+    
     // Obtener usuario actual
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
     };
     getUser();
-  }, []);
+  }, [supabase]);
 
   const handleLogout = async () => {
     try {
+      if (!supabase) {
+        console.error('Supabase no está configurado. No es posible cerrar sesión.');
+        return;
+      }
       await logout();
       window.location.href = '/login';
     } catch (error) {
