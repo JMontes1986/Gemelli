@@ -103,8 +103,8 @@ class UserProfile(BaseModel):
     nombre: str
     email: str
     rol: Literal["DOCENTE", "ADMINISTRATIVO", "TI", "DIRECTOR", "LIDER_TI"]
-    org_unit_id: str
-    org_unit_nombre: str
+    org_unit_id: Optional[str] = None
+    org_unit_nombre: Optional[str] = None
 
 class DeviceCreate(BaseModel):
     nombre: str
@@ -387,16 +387,24 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             "id, nombre, email, rol, org_unit_id, org_units(nombre)"
         ).eq("id", user_response.user.id).single().execute()
         
-        raw_role = user_data.data.get("rol")
+        data = user_data.data or {}
+
+        raw_role = data.get("rol")
         normalized_role = ensure_allowed_role(raw_role)
-           
+
+        org_unit_info = data.get("org_units") or {}
+        org_unit_nombre: Optional[str] = None
+
+        if isinstance(org_unit_info, dict):
+            org_unit_nombre = org_unit_info.get("nombre")
+            
         return UserProfile(
-            id=user_data.data["id"],
-            nombre=user_data.data["nombre"],
-            email=user_data.data["email"],
+            id=data["id"],
+            nombre=data["nombre"],
+            email=data["email"],
             rol=normalized_role,
-            org_unit_id=user_data.data["org_unit_id"],
-            org_unit_nombre=user_data.data["org_units"]["nombre"]
+            org_unit_id=data.get("org_unit_id"),
+            org_unit_nombre=org_unit_nombre,
         )
     except HTTPException:
         raise
