@@ -110,7 +110,7 @@ const Navbar: React.FC = () => {
     ];
 
     if (isGlobalAdmin) {
-      items.push({ name: 'Admin', href: '/admin' });
+      items.push({ name: 'Administrador', href: '/admin' });
     }
 
     return items;
