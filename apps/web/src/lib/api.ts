@@ -166,7 +166,6 @@ export const backups = {
   },
 };
 
-
 // Administración global
 export const admin = {
   listUsers: async () => {
