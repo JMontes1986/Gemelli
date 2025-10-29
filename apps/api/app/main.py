@@ -14,15 +14,39 @@ import unicodedata
 import re
 
 # Configuración
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE")
+SUPABASE_URL = os.getenv("SUPABASE_URL") or os.getenv("PUBLIC_SUPABASE_URL")
+SUPABASE_KEY = (
+    os.getenv("SUPABASE_SERVICE_ROLE")
+    or os.getenv("SUPABASE_SERVICE_KEY")
+    or os.getenv("SUPABASE_SECRET_KEY")
+    or os.getenv("SUPABASE_KEY")
+    or os.getenv("SUPABASE_ANON_KEY")
+    or os.getenv("PUBLIC_SUPABASE_ANON_KEY")
+)
 JWT_SECRET = os.getenv("JWT_SECRET")
 AUDIT_SECRET = os.getenv("AUDIT_SECRET", "change-this-secret-key-in-production")
 
-if not all([SUPABASE_URL, SUPABASE_KEY]):
-    raise ValueError("Missing required environment variables")
+class LazySupabaseClient:
+    """Inicializa el cliente de Supabase únicamente cuando se necesita."""
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    def __init__(self) -> None:
+        self._client: Optional[Client] = None
+
+    def _get_client(self) -> Client:
+        if self._client is None:
+            if not SUPABASE_URL or not SUPABASE_KEY:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Supabase no está configurado correctamente",
+                )
+            self._client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        return self._client
+
+    def __getattr__(self, item):  # type: ignore[override]
+        return getattr(self._get_client(), item)
+        
+
+supabase = LazySupabaseClient()
 
 app = FastAPI(
     title="Gemelli IT API",
