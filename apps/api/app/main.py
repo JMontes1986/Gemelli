@@ -14,14 +14,18 @@ import unicodedata
 import re
 
 # Configuración
-SUPABASE_URL = os.getenv("SUPABASE_URL") or os.getenv("PUBLIC_SUPABASE_URL")
-SUPABASE_KEY = (
-    os.getenv("SUPABASE_SERVICE_ROLE")
-    or os.getenv("SUPABASE_SERVICE_KEY")
-    or os.getenv("SUPABASE_SECRET_KEY")
-    or os.getenv("SUPABASE_KEY")
-    or os.getenv("SUPABASE_ANON_KEY")
-    or os.getenv("PUBLIC_SUPABASE_ANON_KEY")
+SUPABASE_URL_ENV_KEYS = (
+    "SUPABASE_URL",
+    "PUBLIC_SUPABASE_URL",
+)
+SUPABASE_KEY_ENV_KEYS = (
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_SERVICE_ROLE",
+    "SUPABASE_SERVICE_KEY",
+    "SUPABASE_SECRET_KEY",
+    "SUPABASE_KEY",
+    "SUPABASE_ANON_KEY",
+    "PUBLIC_SUPABASE_ANON_KEY",
 )
 JWT_SECRET = os.getenv("JWT_SECRET")
 AUDIT_SECRET = os.getenv("AUDIT_SECRET", "change-this-secret-key-in-production")
@@ -31,20 +35,44 @@ class LazySupabaseClient:
 
     def __init__(self) -> None:
         self._client: Optional[Client] = None
+        self._config: Optional[tuple[str, str]] = None
+
+    @staticmethod
+    def _resolve_supabase_config() -> Optional[tuple[str, str]]:
+        def first_present(keys: tuple[str, ...]) -> Optional[str]:
+            for key in keys:
+                value = os.getenv(key)
+                if value:
+                    return value
+            return None
+
+        url = first_present(SUPABASE_URL_ENV_KEYS)
+        key = first_present(SUPABASE_KEY_ENV_KEYS)
+
+        if not url or not key:
+            return None
+
+        return url, key
 
     def _get_client(self) -> Client:
-        if self._client is None:
-            if not SUPABASE_URL or not SUPABASE_KEY:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Supabase no está configurado correctamente",
-                )
-            self._client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        config = self._resolve_supabase_config()
+
+        if config is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Supabase no está configurado correctamente",
+            )
+
+        if self._client is None or self._config != config:
+            url, key = config
+            self._client = create_client(url, key)
+            self._config = config
+
         return self._client
 
     def __getattr__(self, item):  # type: ignore[override]
-        return getattr(self._get_client(), item)
-        
+        return getattr(self._get_client(), item)        
+
 
 supabase = LazySupabaseClient()
 
