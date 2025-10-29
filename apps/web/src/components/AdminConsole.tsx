@@ -1,5 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, ClipboardList, Shield, ShieldCheck, Users } from 'lucide-react';
+import {
+  type LucideIcon,
+  Activity,
+  CheckCircle2,
+  ClipboardList,
+  Database,
+  KeyRound,
+  Shield,
+  ShieldCheck,
+  Users,
+} from 'lucide-react';
 
 import { auth } from '../lib/api';
 import { normalizeRole } from '../lib/roles';
@@ -155,6 +165,55 @@ const AdminConsole: React.FC = () => {
     },
   ];
 
+  const capabilitySections: Array<{
+    title: string;
+    description: string;
+    icon: LucideIcon;
+    items: string[];
+  }> = [
+    {
+      title: 'Gobernanza del inventario',
+      description:
+        'Controla el ciclo de vida de los activos tecnológicos, asegurando registros completos y trazables.',
+      icon: ShieldCheck,
+      items: [
+        'Supervisar las altas, bajas y transferencias de dispositivos críticos.',
+        'Definir responsables por unidad organizacional y monitorear su cumplimiento.',
+        'Auditar el historial de movimientos y la asignación de custodios.',
+      ],
+    },
+    {
+      title: 'Gestión de accesos y roles',
+      description: 'Administra quién puede ver y modificar la información sensible del sistema.',
+      icon: KeyRound,
+      items: [
+        'Crear, actualizar o suspender cuentas de usuarios internos y externos.',
+        'Delegar permisos temporales sobre el inventario y revocarlos en tiempo real.',
+        'Homologar roles para mantener políticas de seguridad consistentes.',
+      ],
+    },
+    {
+      title: 'Operación del HelpDesk',
+      description: 'Coordina la atención de incidencias y prioriza las necesidades del colegio.',
+      icon: ClipboardList,
+      items: [
+        'Supervisar la bandeja de tickets y asignar responsables del soporte.',
+        'Dar seguimiento al estado de resolución y confirmar la satisfacción del usuario.',
+        'Analizar tendencias para planificar mantenimientos preventivos.',
+      ],
+    },
+    {
+      title: 'Continuidad y cumplimiento',
+      description: 'Garantiza la disponibilidad de la información y la alineación con auditorías.',
+      icon: Database,
+      items: [
+        'Revisar respaldos automáticos y validar su integridad.',
+        'Documentar planes de contingencia y planes de recuperación ante desastres.',
+        'Generar reportes ejecutivos para inspecciones o comités directivos.',
+      ],
+    },
+  ];
+  
   return (
     <div className="mx-auto max-w-7xl space-y-10 px-4 py-8">
       <header className="rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-600 p-8 text-white shadow-lg">
@@ -207,6 +266,50 @@ const AdminConsole: React.FC = () => {
         ))}
       </section>
 
+      <section aria-labelledby="admin-capabilities" className="space-y-6">
+        <div className="flex flex-col gap-2">
+          <h2 id="admin-capabilities" className="text-2xl font-semibold text-gray-900">
+            Capacidades del administrador
+          </h2>
+          <p className="text-sm text-gray-600">
+            El rol de LÍDER_TI concentra las funciones estratégicas de la plataforma. Utiliza este resumen para consultar
+            rápidamente todo lo que puedes gestionar dentro del ecosistema Gemelli IT.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {capabilitySections.map((section) => {
+            const Icon = section.icon;
+            return (
+              <article
+                key={section.title}
+                className="flex h-full flex-col justify-between rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
+              >
+                <div>
+                  <div className="flex items-start gap-3">
+                    <span className="inline-flex rounded-xl bg-blue-50 p-3 text-blue-600">
+                      <Icon className="h-6 w-6" />
+                    </span>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">{section.title}</h3>
+                      <p className="mt-1 text-sm text-gray-600">{section.description}</p>
+                    </div>
+                  </div>
+                  <ul className="mt-4 space-y-3">
+                    {section.items.map((item) => (
+                      <li key={item} className="flex items-start gap-2 text-sm text-gray-700">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 text-blue-500" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+      
       <AdminUserManager />
 
       <section id="permisos" className="space-y-6">
