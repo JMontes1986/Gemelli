@@ -39,7 +39,20 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
     throw new Error(error.detail || `HTTP error! status: ${response.status}`);
   }
 
-  return response.json();
+  if (response.status === 204) {
+    return null;
+  }
+
+  const text = await response.text();
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (parseError) {
+    throw new Error('No se pudo interpretar la respuesta del servidor');
+  }
 }
 
 // Auth
@@ -79,6 +92,29 @@ export const devices = {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+  },
+};
+
+export const inventoryPermissions = {
+  list: async () => {
+    return fetchAPI('/inventory/permissions');
+  },
+
+  create: async (data: { email: string; notes?: string | null }) => {
+    return fetchAPI('/inventory/permissions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  remove: async (id: string) => {
+    return fetchAPI(`/inventory/permissions/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  check: async () => {
+    return fetchAPI('/inventory/permissions/check');
   },
 };
 
