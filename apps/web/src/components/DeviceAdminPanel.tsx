@@ -10,8 +10,9 @@ import {
   XCircle,
 } from 'lucide-react';
 
-import { auth, devices } from '../lib/api';
+import { auth, devices, inventoryPermissions } from '../lib/api';
 import { canManageInventory as canManageInventoryFromProfile } from '../lib/access';
+import InventoryPermissionManager from './InventoryPermissionManager';
 
 interface Device {
   id: string;
@@ -24,6 +25,15 @@ interface Device {
     nombre: string;
     email: string;
   };
+}
+
+interface UserProfile {
+  id: string;
+  nombre: string;
+  email: string;
+  rol: string;
+  org_unit_id: string;
+  org_unit_nombre: string;
 }
 
 interface FormState {
@@ -66,6 +76,8 @@ const DeviceAdminPanel: React.FC = () => {
   const [profileChecked, setProfileChecked] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [permissionSource, setPermissionSource] = useState<'role' | 'override' | 'none'>('none');
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -77,12 +89,29 @@ const DeviceAdminPanel: React.FC = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const profile = await auth.getProfile();
-        setCanManageInventory(canManageInventoryFromProfile(profile));
+        const userProfile = await auth.getProfile();
+        setProfile(userProfile);
+
+        if (canManageInventoryFromProfile(userProfile)) {
+          setCanManageInventory(true);
+          setPermissionSource('role');
+          return;
+        }
+
+        const check = await inventoryPermissions.check();
+
+        if (check?.can_manage) {
+          setCanManageInventory(true);
+          setPermissionSource(check?.source === 'override' ? 'override' : 'role');
+        } else {
+          setCanManageInventory(false);
+          setPermissionSource('none');
+        }
       } catch (error) {
         console.error('No se pudo obtener el perfil del usuario:', error);
         setCanManageInventory(false);
       } finally {
+        setPermissionSource('none');
         setProfileChecked(true);
       }
     };
@@ -247,7 +276,7 @@ const DeviceAdminPanel: React.FC = () => {
           <Shield className="mx-auto mb-4 h-16 w-16 text-blue-500" />
           <h2 className="text-xl font-semibold text-gray-900">Acceso restringido</h2>
           <p className="text-gray-600">
-            No tienes permisos para administrar el inventario. Contacta al equipo de TI si crees que es un error.
+            No tienes permisos para administrar el inventario. Contacta a un líder de TI si necesitas acceso temporal.
           </p>
         </div>
       );
@@ -263,6 +292,11 @@ const DeviceAdminPanel: React.FC = () => {
                 Actualiza estados, ubicaciones y notas para mantener el control de los activos TI.
               </p>
             </div>
+            {permissionSource === 'override' && (
+                <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                  Tienes acceso delegado para administrar el inventario. Notifica al equipo de TI si ya no requieres este permiso.
+                </div>
+              )}
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 onClick={() => {
@@ -554,6 +588,8 @@ const DeviceAdminPanel: React.FC = () => {
           </div>
         </div>
       </>
+
+      {profile?.rol === 'LIDER_TI' && <InventoryPermissionManager />}
     );
   };
 
