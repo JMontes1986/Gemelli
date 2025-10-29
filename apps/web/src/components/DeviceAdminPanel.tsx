@@ -588,7 +588,8 @@ const DeviceAdminPanel: React.FC = () => {
           </div>
         </div>
     
-      {profile?.rol === 'LIDER_TI' && <InventoryPermissionManager />}
+       {profile?.rol === 'LIDER_TI' && <InventoryPermissionManager />}
+      </>
     );
   };
 
