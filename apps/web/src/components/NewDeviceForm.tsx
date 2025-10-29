@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, PlusCircle, Shield, XCircle } from 'lucide-react';
 
-import { auth, devices } from '../lib/api';
+import { auth, devices, inventoryPermissions } from '../lib/api';
 import { canManageInventory as canManageInventoryFromProfile } from '../lib/access/index';
 
 type DeviceType = 'PC' | 'LAPTOP' | 'IMPRESORA' | 'RED' | 'OTRO';
@@ -32,15 +32,34 @@ const NewDeviceForm: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [checkingAccess, setCheckingAccess] = useState(true);
   const [canManageInventory, setCanManageInventory] = useState(false);
+  const [permissionSource, setPermissionSource] = useState<'role' | 'override' | null>(null);
 
   useEffect(() => {
     const verifyPermissions = async () => {
       try {
         const profile = await auth.getProfile();
-       setCanManageInventory(canManageInventoryFromProfile(profile));
+       if (canManageInventoryFromProfile(profile)) {
+          setCanManageInventory(true);
+          setPermissionSource('role');
+          return;
+        }
+
+        const check = await inventoryPermissions.check();
+        if (check?.can_manage) {
+          setCanManageInventory(true);
+          if (check?.source === 'override') {
+            setPermissionSource('override');
+          } else {
+            setPermissionSource('role');
+          }
+        } else {
+          setCanManageInventory(false);
+          setPermissionSource(null);
+        }
       } catch (permissionError) {
         console.error('No se pudo obtener el perfil del usuario:', permissionError);
         setCanManageInventory(false);
+        setPermissionSource(null);
       } finally {
         setCheckingAccess(false);
       }
@@ -120,6 +139,12 @@ const NewDeviceForm: React.FC = () => {
       </a>
 
       <div className="card">
+        {permissionSource === 'override' && (
+          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            Tienes acceso delegado para registrar dispositivos. Avisa al equipo de TI si ya no necesitas este permiso.
+          </div>
+        )}
+
         {error && (
           <div className="mb-6 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <XCircle className="h-5 w-5" />
