@@ -43,24 +43,47 @@ const Navbar: React.FC = () => {
   }, [supabase]);
 
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    let isActive = true;
+    let token: string | null = null;
+
+    try {
+      token = window.localStorage.getItem('access_token');
+    } catch (storageError) {
+      console.error('No se pudo acceder a localStorage para obtener el token:', storageError);
+    }
 
     if (!token) {
-      return;
+      return () => {
+        isActive = false;
+      };
     }
 
     const fetchProfile = async () => {
       try {
         const data = await auth.getProfile();
+        if (!isActive) {
+          return;
+        }
         setProfile(data);
       } catch (error) {
+        if (!isActive) {
+          return;
+        }
         setProfile(null);
       }
     };
 
     fetchProfile();
+
+    return () => {
+      isActive = false;
+    };
   }, []);
-  
+
   const handleLogout = async () => {
     try {
       if (!supabase) {
