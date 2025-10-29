@@ -32,8 +32,8 @@ interface UserProfile {
   nombre: string;
   email: string;
   rol: string;
-  org_unit_id: string;
-  org_unit_nombre: string;
+  org_unit_id: string | null;
+  org_unit_nombre: string | null;
 }
 
 interface FormState {
