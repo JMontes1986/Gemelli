@@ -110,6 +110,7 @@ const DeviceAdminPanel: React.FC = () => {
       } catch (error) {
         console.error('No se pudo obtener el perfil del usuario:', error);
         setCanManageInventory(false);
+        setPermissionSource('none');
       } finally {
         setPermissionSource('none');
         setProfileChecked(true);
@@ -249,7 +250,6 @@ const DeviceAdminPanel: React.FC = () => {
       } else {
         setSelectedDeviceId(null);
       }
-
       await fetchDevices();
     } catch (error: any) {
       setMessage({
@@ -291,12 +291,12 @@ const DeviceAdminPanel: React.FC = () => {
               <p className="text-sm text-gray-600">
                 Actualiza estados, ubicaciones y notas para mantener el control de los activos TI.
               </p>
-            </div>
             {permissionSource === 'override' && (
                 <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
                   Tienes acceso delegado para administrar el inventario. Notifica al equipo de TI si ya no requieres este permiso.
                 </div>
               )}
+              </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 onClick={() => {
@@ -587,8 +587,7 @@ const DeviceAdminPanel: React.FC = () => {
             )}
           </div>
         </div>
-      </>
-
+    
       {profile?.rol === 'LIDER_TI' && <InventoryPermissionManager />}
     );
   };
