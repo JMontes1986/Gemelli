@@ -1208,7 +1208,6 @@ async def get_entity_audit(entity_id: str, user: UserProfile = Depends(get_curre
     
     return {"data": response.data, "count": len(response.data)}
 
-
 if Mangum:
     handler = Mangum(app)
 else:  # pragma: no cover - exposes app for ASGI servers
