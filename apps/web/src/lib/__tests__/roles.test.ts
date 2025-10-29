@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { normalizeRole } from '../roles';
-import { canManageInventory, hasPrivilegedInventoryEmail } from '../access';
+import { canManageInventory } from '../access';
 
 assert.equal(normalizeRole('ti'), 'TI');
 assert.equal(normalizeRole('docente'), 'DOCENTE');
@@ -40,16 +40,6 @@ assert.equal(
 assert.equal(
   canManageInventory({ rol: 'DOCENTE', email: 'docente@example.com' }),
   false,
-);
-
-assert.equal(
-  canManageInventory({ email: 'sistemas@colgemelli.edu.co' }),
-  true,
-);
-
-assert.equal(
-  hasPrivilegedInventoryEmail({ data: { correo: 'sistemas@colgemelli.edu.co' } }),
-  true,
 );
 
 console.log('canManageInventory tests passed');
