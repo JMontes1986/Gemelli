@@ -84,7 +84,10 @@ const InventoryPermissionManager: React.FC = () => {
       ? `¿Revocar acceso delegado para ${permission.email}?`
       : '¿Revocar este permiso delegado?';
 
-    if (!window.confirm(confirmationMessage)) {
+    const confirmed =
+      typeof window === 'undefined' ? false : window.confirm(confirmationMessage);
+
+    if (!confirmed) {
       return;
     }
 
