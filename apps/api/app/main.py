@@ -3,8 +3,8 @@ from fastapi import FastAPI, Depends, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from supabase import create_client, Client
-from pydantic import BaseModel, Field
-from typing import Optional, List, Literal
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional, List, Literal, Dict, Any
 from datetime import datetime
 import os
 import hashlib
@@ -31,6 +31,7 @@ JWT_SECRET = os.getenv("JWT_SECRET")
 AUDIT_SECRET = os.getenv("AUDIT_SECRET", "change-this-secret-key-in-production")
 
 EMAIL_REGEX = re.compile(r"^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$", re.IGNORECASE)
+ALLOWED_ROLES = {"DOCENTE", "ADMINISTRATIVO", "TI", "DIRECTOR", "LIDER_TI"}
 
 class LazySupabaseClient:
     """Inicializa el cliente de Supabase únicamente cuando se necesita."""
@@ -171,6 +172,52 @@ class InventoryPermissionResponse(BaseModel):
     notes: Optional[str]
     granted_at: Optional[datetime]
     granted_by: Optional[str]
+
+    
+    class AdminUserBase(BaseModel):
+    nombre: str = Field(..., min_length=2, max_length=150)
+    email: str = Field(..., max_length=255)
+    rol: Literal["DOCENTE", "ADMINISTRATIVO", "TI", "DIRECTOR", "LIDER_TI"]
+    org_unit_id: Optional[str] = None
+    activo: bool = True
+
+    @field_validator("nombre")
+    @classmethod
+    def validate_nombre(cls, value: str) -> str:
+        cleaned = value.strip()
+        if len(cleaned) < 2:
+            raise ValueError("El nombre debe tener al menos 2 caracteres")
+        return cleaned
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        normalized = (value or "").strip().lower()
+        if not normalized or not EMAIL_REGEX.match(normalized):
+            raise ValueError("Correo electrónico inválido")
+        return normalized
+
+
+class AdminUserCreate(AdminUserBase):
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+class AdminUserUpdate(BaseModel):
+    nombre: Optional[str] = Field(default=None, min_length=2, max_length=150)
+    rol: Optional[Literal["DOCENTE", "ADMINISTRATIVO", "TI", "DIRECTOR", "LIDER_TI"]] = None
+    org_unit_id: Optional[str] = None
+    activo: Optional[bool] = None
+    password: Optional[str] = Field(default=None, min_length=8, max_length=128)
+
+    @field_validator("nombre")
+    @classmethod
+    def validate_optional_nombre(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        cleaned = value.strip()
+        if len(cleaned) < 2:
+            raise ValueError("El nombre debe tener al menos 2 caracteres")
+        return cleaned
 # ==================== AUDIT HASH SYSTEM ====================
 
 def generate_audit_hash(action: str, entity_id: str, user_id: str, data: dict = None) -> dict:
@@ -316,6 +363,16 @@ def normalize_role_value(role: Optional[str]) -> Optional[str]:
     return normalized or None
 
 
+def ensure_allowed_role(raw_role: Optional[str]) -> str:
+    normalized_role = normalize_role_value(raw_role)
+    if normalized_role not in ALLOWED_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Rol en Supabase inválido: {raw_role}",
+        )
+    return normalized_role
+
+
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> UserProfile:
     """Obtener usuario autenticado desde JWT"""
     try:
@@ -330,16 +387,9 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             "id, nombre, email, rol, org_unit_id, org_units(nombre)"
         ).eq("id", user_response.user.id).single().execute()
         
-        allowed_roles = {"DOCENTE", "ADMINISTRATIVO", "TI", "DIRECTOR", "LIDER_TI"}
         raw_role = user_data.data.get("rol")
-        normalized_role = normalize_role_value(raw_role)
-
-        if normalized_role not in allowed_roles:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Rol en Supabase inválido: {raw_role}"
-            )
-            
+        normalized_role = ensure_allowed_role(raw_role)
+           
         return UserProfile(
             id=user_data.data["id"],
             nombre=user_data.data["nombre"],
@@ -382,6 +432,40 @@ def normalize_email_value(value: Optional[str]) -> Optional[str]:
     return normalized or None
 
 
+def serialize_user_record(record: Dict[str, Any]) -> Dict[str, Any]:
+    org_unit_data = record.get("org_units") or {}
+    normalized_role = normalize_role_value(record.get("rol"))
+    return {
+        "id": record.get("id"),
+        "nombre": record.get("nombre"),
+        "email": record.get("email"),
+        "rol": normalized_role if normalized_role else record.get("rol"),
+        "activo": record.get("activo"),
+        "org_unit_id": record.get("org_unit_id"),
+        "org_unit_nombre": org_unit_data.get("nombre"),
+    }
+
+
+def fetch_user_profile_by_id(user_id: str) -> Dict[str, Any]:
+    try:
+        response = (
+            supabase.table("users")
+            .select("id, nombre, email, rol, activo, org_unit_id, org_units(nombre)")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"No se pudo obtener el usuario: {exc}")
+
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    return serialize_user_record(response.data[0])
+
+
 def get_inventory_permission_by_email(email: Optional[str]) -> Optional[dict]:
     normalized = normalize_email_value(email)
     if not normalized:
@@ -407,6 +491,15 @@ def get_inventory_permission_by_email(email: Optional[str]) -> Optional[dict]:
 
 def inventory_override_exists(email: Optional[str]) -> bool:
     return get_inventory_permission_by_email(email) is not None
+
+
+def require_global_admin():
+    async def dependency(user: UserProfile = Depends(get_current_user)):
+        if user.rol != "LIDER_TI":
+            raise HTTPException(status_code=403, detail="Permisos insuficientes")
+        return user
+
+    return dependency
 
 
 def require_inventory_manager():
@@ -442,6 +535,191 @@ async def health():
 async def get_profile(user: UserProfile = Depends(get_current_user)):
     """Obtener perfil del usuario autenticado"""
     return user
+
+# --- ADMIN ---
+
+@app.get("/admin/users")
+async def admin_list_users(user: UserProfile = Depends(require_global_admin())):
+    try:
+        response = (
+            supabase.table("users")
+            .select("id, nombre, email, rol, activo, org_unit_id, org_units(nombre)")
+            .order("nombre")
+            .execute()
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"No se pudieron obtener los usuarios: {exc}")
+
+    records = [serialize_user_record(item) for item in (response.data or [])]
+    return {"data": records, "count": len(records)}
+
+
+@app.post("/admin/users", status_code=201)
+async def admin_create_user(payload: AdminUserCreate, user: UserProfile = Depends(require_global_admin())):
+    normalized_email = normalize_email_value(payload.email)
+    if not normalized_email or not EMAIL_REGEX.match(normalized_email):
+        raise HTTPException(status_code=422, detail="Correo electrónico inválido")
+
+    normalized_role = ensure_allowed_role(payload.rol)
+
+    try:
+        existing = (
+            supabase.table("users")
+            .select("id")
+            .eq("email", normalized_email)
+            .limit(1)
+            .execute()
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"No se pudo verificar usuarios existentes: {exc}")
+
+    if existing.data:
+        raise HTTPException(status_code=409, detail="El correo electrónico ya está registrado")
+
+    try:
+        auth_response = supabase.auth.admin.create_user({
+            "email": normalized_email,
+            "password": payload.password,
+            "email_confirm": True,
+            "user_metadata": {
+                "full_name": payload.nombre,
+                "role": normalized_role,
+                "org_unit_id": payload.org_unit_id,
+                "active": payload.activo,
+            },
+        })
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"No se pudo crear el usuario en Supabase: {exc}")
+
+    new_user = getattr(auth_response, "user", None)
+    if new_user is None:
+        raise HTTPException(status_code=400, detail="Supabase no devolvió el usuario creado")
+
+    profile_payload = {
+        "id": new_user.id,
+        "nombre": payload.nombre,
+        "email": normalized_email,
+        "rol": normalized_role,
+        "org_unit_id": payload.org_unit_id,
+        "activo": payload.activo,
+    }
+
+    try:
+        supabase.table("users").insert(profile_payload).execute()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        try:
+            supabase.auth.admin.delete_user(new_user.id)
+        except Exception:
+            pass
+        raise HTTPException(status_code=400, detail=f"No se pudo guardar el perfil del usuario: {exc}")
+
+    await register_audit_event(
+        "CREATE_USER",
+        new_user.id,
+        user.id,
+        {
+            "email": normalized_email,
+            "rol": normalized_role,
+            "org_unit_id": payload.org_unit_id,
+            "activo": payload.activo,
+        },
+    )
+
+    return {"data": fetch_user_profile_by_id(new_user.id)}
+
+
+@app.patch("/admin/users/{user_id}")
+async def admin_update_user(
+    user_id: str,
+    payload: AdminUserUpdate,
+    user: UserProfile = Depends(require_global_admin()),
+):
+    updates: Dict[str, Any] = {}
+    metadata_updates: Dict[str, Any] = {}
+    audit_metadata: Dict[str, Any] = {}
+
+    if payload.nombre is not None:
+        updates["nombre"] = payload.nombre
+        metadata_updates["full_name"] = payload.nombre
+        audit_metadata["nombre"] = payload.nombre
+
+    if payload.rol is not None:
+        normalized_role = ensure_allowed_role(payload.rol)
+        updates["rol"] = normalized_role
+        metadata_updates["role"] = normalized_role
+        audit_metadata["rol"] = normalized_role
+
+    if payload.org_unit_id is not None:
+        updates["org_unit_id"] = payload.org_unit_id
+        metadata_updates["org_unit_id"] = payload.org_unit_id
+        audit_metadata["org_unit_id"] = payload.org_unit_id
+
+    if payload.activo is not None:
+        updates["activo"] = payload.activo
+        metadata_updates["active"] = payload.activo
+        audit_metadata["activo"] = payload.activo
+
+    if payload.password:
+        audit_metadata["password_reset"] = True
+
+    if not updates and not payload.password:
+        raise HTTPException(status_code=400, detail="No se proporcionaron cambios para actualizar")
+
+    try:
+        if updates:
+            response = (
+                supabase.table("users")
+                .update(updates)
+                .eq("id", user_id)
+                .execute()
+            )
+
+            if not response.data:
+                raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        if metadata_updates or payload.password:
+            update_payload: Dict[str, Any] = {}
+            if metadata_updates:
+                update_payload["user_metadata"] = metadata_updates
+            if payload.password:
+                update_payload["password"] = payload.password
+            supabase.auth.admin.update_user_by_id(user_id, update_payload)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"No se pudo actualizar el usuario: {exc}")
+
+    if audit_metadata:
+        await register_audit_event("UPDATE_USER", user_id, user.id, audit_metadata)
+
+    return {"data": fetch_user_profile_by_id(user_id)}
+
+
+@app.get("/admin/org-units")
+async def admin_list_org_units(user: UserProfile = Depends(require_global_admin())):
+    try:
+        response = (
+            supabase.table("org_units")
+            .select("id, nombre")
+            .order("nombre")
+            .execute()
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"No se pudieron obtener las unidades organizacionales: {exc}",
+        )
+
+    data = response.data or []
+    return {"data": data, "count": len(data)}
 
 # --- INVENTORY ---
 
