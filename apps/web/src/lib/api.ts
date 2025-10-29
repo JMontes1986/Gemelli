@@ -165,3 +165,42 @@ export const backups = {
     return fetchAPI(`/backups${query}`);
   },
 };
+
+
+// Administración global
+export const admin = {
+  listUsers: async () => {
+    return fetchAPI('/admin/users');
+  },
+
+  createUser: async (data: {
+    nombre: string;
+    email: string;
+    password: string;
+    rol: string;
+    org_unit_id?: string | null;
+    activo?: boolean;
+  }) => {
+    return fetchAPI('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateUser: async (userId: string, data: Partial<{
+    nombre: string;
+    rol: string;
+    org_unit_id: string | null;
+    activo: boolean;
+    password: string;
+  }>) => {
+    return fetchAPI(`/admin/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  listOrgUnits: async () => {
+    return fetchAPI('/admin/org-units');
+  },
+};
