@@ -1,12 +1,23 @@
 // src/components/Navbar.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Activity, Menu, X, LogOut, User } from 'lucide-react';
 import { tryGetSupabaseClient, logout } from '../lib/supabase';
+import { auth } from '../lib/api';
+
+interface UserProfile {
+  id: string;
+  nombre: string;
+  email: string;
+  rol: string;
+  org_unit_id: string;
+  org_unit_nombre: string;
+}
 
 const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [supabase, setSupabase] = useState<ReturnType<typeof tryGetSupabaseClient>>();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     const client = tryGetSupabaseClient();
@@ -31,6 +42,25 @@ const Navbar: React.FC = () => {
     getUser();
   }, [supabase]);
 
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+
+    if (!token) {
+      return;
+    }
+
+    const fetchProfile = async () => {
+      try {
+        const data = await auth.getProfile();
+        setProfile(data);
+      } catch (error) {
+        setProfile(null);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+  
   const handleLogout = async () => {
     try {
       if (!supabase) {
@@ -44,12 +74,22 @@ const Navbar: React.FC = () => {
     }
   };
 
-  const navigation = [
-    { name: 'Dashboard', href: '/dashboard' },
-    { name: 'Inventario', href: '/inventory' },
-    { name: 'HelpDesk', href: '/helpdesk' },
-    { name: 'Backups', href: '/backups' },
-  ];
+  const isGlobalAdmin = profile?.rol === 'LIDER_TI';
+
+  const navigation = useMemo(() => {
+    const items = [
+      { name: 'Dashboard', href: '/dashboard' },
+      { name: 'Inventario', href: '/inventory' },
+      { name: 'HelpDesk', href: '/helpdesk' },
+      { name: 'Backups', href: '/backups' },
+    ];
+
+    if (isGlobalAdmin) {
+      items.push({ name: 'Admin', href: '/admin' });
+    }
+
+    return items;
+  }, [isGlobalAdmin]);
 
   return (
     <nav className="bg-white shadow-md border-b border-gray-200 sticky top-0 z-50">
