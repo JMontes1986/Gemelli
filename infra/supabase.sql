@@ -37,6 +37,15 @@ CREATE TABLE users (
     actualizado_en TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Permisos delegados para inventario
+CREATE TABLE inventory_access_grants (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    notes TEXT,
+    granted_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    granted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Dispositivos
 CREATE TABLE devices (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
