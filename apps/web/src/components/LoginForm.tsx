@@ -1,7 +1,7 @@
 // src/components/LoginForm.tsx
 import React, { useEffect, useState } from 'react';
 import { Activity, Mail, Lock, AlertCircle, User, Building, Shield } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { tryGetSupabaseClient } from '../lib/supabase';
 
 const LoginForm: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -17,10 +17,26 @@ const LoginForm: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [supabase, setSupabase] = useState<ReturnType<typeof tryGetSupabaseClient>>();
 
   const isLogin = mode === 'login';
 
   useEffect(() => {
+    const client = tryGetSupabaseClient();
+
+    if (!client) {
+      setError('Supabase no está configurado. Verifica las variables PUBLIC_SUPABASE_URL y PUBLIC_SUPABASE_ANON_KEY.');
+      return;
+    }
+
+    setSupabase(client);
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) {
+      return;
+    }
+    
     const fetchOrgUnits = async () => {
       setOrgUnitsLoading(true);
       const { data, error } = await supabase
@@ -38,7 +54,7 @@ const LoginForm: React.FC = () => {
     };
 
     fetchOrgUnits();
-  }, []);
+  }, [supabase]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +63,10 @@ const LoginForm: React.FC = () => {
     setLoading(true);
 
     try {
+      if (!supabase) {
+        throw new Error('Supabase no está configurado.');
+      }
+      
       if (mode === 'login') {
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
@@ -70,7 +90,7 @@ const LoginForm: React.FC = () => {
           options: {
             data: {
               full_name: fullName,
-            role,
+              role,
               org_unit_id: orgUnitId || null,
               active: isActive,
             },
