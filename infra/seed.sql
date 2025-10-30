@@ -60,17 +60,78 @@ INSERT INTO devices (id, nombre, tipo, estado, org_unit_id, ubicacion, serial, m
 
 -- ==================== ESPECIFICACIONES ====================
 
-INSERT INTO device_specs (device_id, cpu, ram, disco, os, licencias) VALUES
-('d1111111-1111-1111-1111-111111111111', 'Intel Core i5-11400', '16GB DDR4', '512GB SSD NVMe', 'Windows 11 Pro', 
-    '{"windows": "OEM", "office": "Microsoft 365 E3", "antivirus": "Windows Defender"}'::jsonb),
-('d2222222-2222-2222-2222-222222222222', 'Intel Core i5-10500', '16GB DDR4', '256GB SSD + 1TB HDD', 'Windows 11 Pro',
-    '{"windows": "OEM", "office": "Microsoft 365 E3", "antivirus": "Windows Defender"}'::jsonb),
-('d3333333-3333-3333-3333-333333333333', 'Intel Core i7-1165G7', '8GB DDR4', '256GB SSD', 'Windows 10 Pro',
-    '{"windows": "OEM", "office": "Office 2021", "antivirus": "Kaspersky"}'::jsonb),
-('d4444444-4444-4444-4444-444444444444', 'Intel Core i7-1165G7', '8GB DDR4', '256GB SSD', 'Windows 10 Pro',
-    '{"windows": "OEM", "office": "Office 2021", "antivirus": "Kaspersky"}'::jsonb),
-('d5555555-5555-5555-5555-555555555555', 'Intel Core i7-10750H', '8GB DDR4', '512GB SSD', 'Windows 10 Pro',
-    '{"windows": "OEM", "office": "Office 2019", "antivirus": "Kaspersky"}'::jsonb);
+INSERT INTO device_specs (
+    device_id,
+    cpu,
+    cpu_velocidad,
+    ram,
+    ram_capacidad,
+    disco,
+    disco_capacidad,
+    os,
+    licencias,
+    perifericos
+) VALUES
+(
+    'd1111111-1111-1111-1111-111111111111',
+    'Intel Core i5-11400',
+    '2.60 GHz',
+    'DDR4',
+    '16GB',
+    'SSD NVMe',
+    '512GB',
+    'Windows 11 Pro',
+    '{"windows": "OEM", "office": "Microsoft 365 E3", "antivirus": "Windows Defender"}'::jsonb,
+    '{"teclado": {"nombre": "Logitech K120", "serial": "N.A."}, "mouse": {"nombre": "Logitech B100", "serial": "N.A."}}'::jsonb
+),
+(
+    'd2222222-2222-2222-2222-222222222222',
+    'Intel Core i5-10500',
+    '3.10 GHz',
+    'DDR4',
+    '16GB',
+    'SSD + HDD',
+    '256GB SSD / 1TB HDD',
+    'Windows 11 Pro',
+    '{"windows": "OEM", "office": "Microsoft 365 E3", "antivirus": "Windows Defender"}'::jsonb,
+    '{"teclado": {"nombre": "N.A.", "serial": "N.A."}, "mouse": {"nombre": "N.A.", "serial": "N.A."}}'::jsonb
+),
+(
+    'd3333333-3333-3333-3333-333333333333',
+    'Intel Core i7-1165G7',
+    '2.80 GHz',
+    'DDR4',
+    '8GB',
+    'SSD',
+    '256GB',
+    'Windows 10 Pro',
+    '{"windows": "OEM", "office": "Office 2021", "antivirus": "Kaspersky"}'::jsonb,
+    '{"teclado": {"nombre": "Dell KB216", "serial": "N.A."}, "mouse": {"nombre": "Dell MS116", "serial": "N.A."}}'::jsonb
+),
+(
+    'd4444444-4444-4444-4444-444444444444',
+    'Intel Core i7-1165G7',
+    '2.80 GHz',
+    'DDR4',
+    '8GB',
+    'SSD',
+    '256GB',
+    'Windows 10 Pro',
+    '{"windows": "OEM", "office": "Office 2021", "antivirus": "Kaspersky"}'::jsonb,
+    '{"teclado": {"nombre": "Dell KB216", "serial": "N.A."}, "mouse": {"nombre": "Dell MS116", "serial": "N.A."}}'::jsonb
+),
+(
+    'd5555555-5555-5555-5555-555555555555',
+    'Intel Core i7-10750H',
+    '2.60 GHz',
+    'DDR4',
+    '8GB',
+    'SSD',
+    '512GB',
+    'Windows 10 Pro',
+    '{"windows": "OEM", "office": "Office 2019", "antivirus": "Kaspersky"}'::jsonb,
+    '{"teclado": {"nombre": "Integrado", "serial": "N.A."}, "mouse": {"nombre": "Inalámbrico Logitech", "serial": "N.A."}}'::jsonb
+);
 -- ==================== LOGS DE DISPOSITIVOS ====================
 
 INSERT INTO device_logs (device_id, tipo, descripcion, realizado_por, fecha) VALUES
