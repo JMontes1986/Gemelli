@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { ArrowLeft, PlusCircle, Shield, XCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowLeft, PlusCircle, XCircle } from 'lucide-react';
 
-import { auth, devices, inventoryPermissions } from '../lib/api';
-import { canManageInventory as canManageInventoryFromProfile } from '../lib/access/index';
+import { devices } from '../lib/api';
 
 type DeviceType = 'PC' | 'LAPTOP' | 'IMPRESORA' | 'RED' | 'OTRO';
 type DeviceStatus = 'ACTIVO' | 'REPARACIÓN' | 'RETIRADO';
@@ -29,45 +28,7 @@ const NewDeviceForm: React.FC = () => {
   const [formData, setFormData] = useState<FormState>(initialFormState);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [checkingAccess, setCheckingAccess] = useState(true);
-  const [canManageInventory, setCanManageInventory] = useState(false);
-  const [permissionSource, setPermissionSource] = useState<'role' | 'override' | null>(null);
-
-  useEffect(() => {
-    const verifyPermissions = async () => {
-      try {
-        const profile = await auth.getProfile();
-       if (canManageInventoryFromProfile(profile)) {
-          setCanManageInventory(true);
-          setPermissionSource('role');
-          return;
-        }
-
-        const check = await inventoryPermissions.check();
-        if (check?.can_manage) {
-          setCanManageInventory(true);
-          if (check?.source === 'override') {
-            setPermissionSource('override');
-          } else {
-            setPermissionSource('role');
-          }
-        } else {
-          setCanManageInventory(false);
-          setPermissionSource(null);
-        }
-      } catch (permissionError) {
-        console.error('No se pudo obtener el perfil del usuario:', permissionError);
-        setCanManageInventory(false);
-        setPermissionSource(null);
-      } finally {
-        setCheckingAccess(false);
-      }
-    };
-
-    verifyPermissions();
-  }, []);
-
+ 
   const handleChange = (
     field: keyof FormState
   ) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -76,10 +37,6 @@ const NewDeviceForm: React.FC = () => {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    if (!canManageInventory) {
-      return;
-    }
 
     setSaving(true);
     setError('');
@@ -110,27 +67,6 @@ const NewDeviceForm: React.FC = () => {
     }
   };
 
-  if (checkingAccess) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (!canManageInventory) {
-    return (
-      <div className="card bg-blue-50 border border-blue-200 text-center py-12">
-        <Shield className="mx-auto mb-4 h-12 w-12 text-blue-500" />
-        <h2 className="text-xl font-semibold text-gray-900">Acceso restringido</h2>
-        <p className="mt-2 text-gray-600 max-w-lg mx-auto">
-          Solo el personal de TI autorizado puede agregar nuevos dispositivos al inventario. Si necesitas acceso, contacta al equipo de
-          soporte.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <a href="/inventory" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900">
@@ -139,12 +75,6 @@ const NewDeviceForm: React.FC = () => {
       </a>
 
       <div className="card">
-        {permissionSource === 'override' && (
-          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-            Tienes acceso delegado para registrar dispositivos. Avisa al equipo de TI si ya no necesitas este permiso.
-          </div>
-        )}
-
         {error && (
           <div className="mb-6 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <XCircle className="h-5 w-5" />
