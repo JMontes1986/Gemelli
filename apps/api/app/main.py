@@ -110,6 +110,22 @@ class UserProfile(BaseModel):
     org_unit_id: Optional[str] = None
     org_unit_nombre: Optional[str] = None
 
+class PeripheralInfo(BaseModel):
+    nombre: Optional[str] = None
+    serial: Optional[str] = None
+
+
+class DeviceSpecsInput(BaseModel):
+    procesador: Optional[str] = None
+    procesador_velocidad: Optional[str] = None
+    memoria_tipo: Optional[str] = None
+    memoria_capacidad: Optional[str] = None
+    disco_tipo: Optional[str] = None
+    disco_capacidad: Optional[str] = None
+    teclado: Optional[PeripheralInfo] = None
+    mouse: Optional[PeripheralInfo] = None
+
+
 class DeviceCreate(BaseModel):
     nombre: str
     tipo: Literal["PC", "LAPTOP", "IMPRESORA", "RED", "OTRO"]
@@ -118,6 +134,10 @@ class DeviceCreate(BaseModel):
     ubicacion: str
     imagen: Optional[str] = None
     notas: Optional[str] = None
+    serial: Optional[str] = None
+    marca: Optional[str] = None
+    modelo: Optional[str] = None
+    specs: Optional[DeviceSpecsInput] = None
 
 class DeviceUpdate(BaseModel):
     nombre: Optional[str] = None
@@ -125,14 +145,24 @@ class DeviceUpdate(BaseModel):
     usuario_actual_id: Optional[str] = None
     ubicacion: Optional[str] = None
     notas: Optional[str] = None
+    imagen: Optional[str] = None
+    serial: Optional[str] = None
+    marca: Optional[str] = None
+    modelo: Optional[str] = None
 
 class DeviceSpecs(BaseModel):
     device_id: str
     cpu: Optional[str] = None
+    cpu_velocidad: Optional[str] = None
     ram: Optional[str] = None
+    ram_capacidad: Optional[str] = None
     disco: Optional[str] = None
+    disco_capacidad: Optional[str] = None
     os: Optional[str] = None
     licencias: Optional[dict] = None
+    red: Optional[dict] = None
+    perifericos: Optional[dict] = None
+    otros: Optional[dict] = None
 
 class DeviceLog(BaseModel):
     device_id: str
@@ -764,28 +794,62 @@ async def create_device(
 ):
     """Crear nuevo dispositivo (personal TI o Líder TI autorizado)"""
     device_data = device.model_dump()
+    specs_data = device_data.pop("specs", None)
+    device_data = {k: v for k, v in device_data.items() if v is not None}
     device_data["org_unit_id"] = user.org_unit_id
     device_data["creado_por"] = user.id
     device_data["fecha_ingreso"] = datetime.utcnow().isoformat()
     
     response = supabase.table("devices").insert(device_data).execute()
-    
+    device_id = response.data[0]["id"]
+
+    if specs_data:
+        specs_payload = {
+            "device_id": device_id,
+            "cpu": specs_data.get("procesador"),
+            "cpu_velocidad": specs_data.get("procesador_velocidad"),
+            "ram": specs_data.get("memoria_tipo"),
+            "ram_capacidad": specs_data.get("memoria_capacidad"),
+            "disco": specs_data.get("disco_tipo"),
+            "disco_capacidad": specs_data.get("disco_capacidad"),
+        }
+
+        perifericos: dict[str, dict[str, Optional[str]]] = {}
+
+        for perif_name in ("teclado", "mouse"):
+            perif_data = specs_data.get(perif_name) or {}
+            if isinstance(perif_data, dict):
+                perif_clean = {k: v for k, v in perif_data.items() if v not in (None, "")}
+                if perif_clean:
+                    perifericos[perif_name] = perif_clean
+
+        if perifericos:
+            specs_payload["perifericos"] = perifericos
+
+        specs_payload = {
+            key: value for key, value in specs_payload.items() if value not in (None, "", {})
+        }
+
+        if len(specs_payload.keys()) > 1:
+            supabase.table("device_specs").insert(specs_payload).execute()
+            
     # Log de creación
-    supabase.table("device_logs").insert({
+    "device_id": device_id,
         "device_id": response.data[0]["id"],
         "tipo": "OTRO",
         "descripcion": f"Dispositivo creado por {user.nombre}",
         "realizado_por": user.id
     }).execute()
-    
+
     # Registrar en auditoría
     await register_audit_event(
         "CREATE_DEVICE",
+        device_id,
         response.data[0]["id"],
         user.id,
         {"device_name": device.nombre, "type": device.tipo}
     )
-    
+
     return {"data": response.data[0], "message": "Dispositivo creado exitosamente"}
 
 @app.get("/inventory/devices/{device_id}/cv")
