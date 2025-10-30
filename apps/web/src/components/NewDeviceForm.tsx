@@ -28,7 +28,7 @@ const NewDeviceForm: React.FC = () => {
   const [formData, setFormData] = useState<FormState>(initialFormState);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
- 
+  const [successMessage, setSuccessMessage] = useState('');
   const handleChange = (
     field: keyof FormState
   ) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -40,7 +40,7 @@ const NewDeviceForm: React.FC = () => {
 
     setSaving(true);
     setError('');
-    setSuccess('');
+    setSuccessMessage('');
 
     try {
       const payload = {
@@ -54,7 +54,7 @@ const NewDeviceForm: React.FC = () => {
 
       await devices.create(payload);
 
-      setSuccess('Dispositivo agregado correctamente al inventario. Redirigiendo...');
+      setSuccessMessage('Dispositivo agregado correctamente al inventario. Redirigiendo...');
       setFormData(initialFormState);
 
       setTimeout(() => {
@@ -82,9 +82,9 @@ const NewDeviceForm: React.FC = () => {
           </div>
         )}
 
-        {success && (
+        {successMessage && (
           <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-            {success}
+            {successMessage}
           </div>
         )}
 
